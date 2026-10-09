@@ -402,6 +402,19 @@ body:has(.app-shell) { padding:0; background:#f2ede2; }
 .app-shell .community-response-box { padding:12px 14px; border:1px solid #cfc6b6; border-radius:6px; background:#fbf8f1; }
 .app-shell .community-response-box .field-label { display:block; margin-bottom:5px; }
 .app-shell .community-response-box p { margin:0; color:#514d41; font:13px/1.5 'Segoe UI', Arial, sans-serif; }
+.app-shell .community-response-box { padding:16px; }
+.app-shell .community-response-box .summary-heading { display:flex; align-items:center; gap:8px; margin:0 0 8px; color:#373f2c; font:600 14px/1.4 'Segoe UI', Arial, sans-serif; }
+.app-shell .summary-heading svg { flex-shrink:0; color:#53745c; }
+.app-shell .summary-highlights { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin:12px 0; }
+.app-shell .summary-highlight { min-width:0; padding:12px; border-radius:6px; }
+.app-shell .summary-benefit { background:#e4ecdf; }
+.app-shell .summary-concern { background:#f4e4d9; }
+.app-shell .summary-highlight > span { display:flex; align-items:center; gap:5px; margin-bottom:9px; font:500 11px/1.4 'Segoe UI', Arial, sans-serif; }
+.app-shell .summary-benefit > span { color:#46664d; }
+.app-shell .summary-concern > span { color:#a36548; }
+.app-shell .summary-highlight p { color:#303b2b; font-weight:600; overflow-wrap:anywhere; }
+.app-shell .summary-improvement { padding:12px; border-radius:6px; background:#eae7db; }
+.app-shell .summary-improvement svg { color:#7e7947; }
 .app-shell .community-card .results-caption { justify-content:center; text-align:center; }
 .app-shell .community-card .response-context-note { text-align:center; }
 .app-shell .community-card .stat-grid { width:min(100%, 760px); margin:6px auto; }
@@ -462,17 +475,18 @@ body:has(.app-shell) { padding:0; background:#f2ede2; }
 .app-shell .sector-map, .app-shell .sector-map:has(.floating-profile) {
   background:radial-gradient(ellipse at top, #e5e9dc, #d3dcc9);
   grid-template-columns:repeat(2, minmax(190px, 1fr));
-  gap:40px 24px;
-  padding:28px 24px 50px 250px;
+  gap:24px 18px;
+  padding:20px 20px 32px;
   min-width:760px;
-  align-items:start;
+  align-items:stretch;
   perspective:1200px;
 }
+.app-shell .sector-map:has(.floating-profile) { padding-left:250px; }
 .app-shell .sector-map .floating-profile { min-height:0; width:210px; box-shadow:0 12px 30px #35402720; }
 .app-shell .sector-tile {
   --sector-top:#e8eddf;
   --sector-edge:#819970;
-  min-height:165px;
+  min-height:0;
   padding:10px 9px 13px;
   border-radius:18px;
   background:var(--sector-top);
@@ -480,6 +494,7 @@ body:has(.app-shell) { padding:0; background:#f2ede2; }
   transition:transform .35s ease, box-shadow .35s ease;
 }
 .app-shell .sector-tile:before, .app-shell .sector-tile:after { display:none; }
+.app-shell .sector-map .sector-tile { min-height:0; margin:0; align-self:stretch; }
 .app-shell .sector-tile:hover, .app-shell .sector-tile:focus-within { transform:translateY(-5px); box-shadow:0 12px 0 var(--sector-edge), 0 22px 26px #37452e30; z-index:5; }
 .app-shell .sector-tile h4 { color:#38452f; font:600 11px/1.25 'Segoe UI', Arial, sans-serif; text-align:center; }
 .app-shell .sector-tile .purok-count { color:#5b684e; text-align:center; margin-bottom:4px; font-size:10px; }
@@ -488,7 +503,44 @@ body:has(.app-shell) { padding:0; background:#f2ede2; }
 .app-shell .sector-tile .map-resident { min-height:24px; height:24px; }
 .app-shell .sector-tile .map-person { filter:drop-shadow(3px 4px 1px #3c4d3325); }
 .app-shell .sector-tile .person-body { box-shadow:inset -5px 0 #0002; }
+.app-shell .sector-tile .person-body::before { display:none; }
 .app-shell .sector-tile .group-popover { bottom:-4px; }
+.app-shell .sector-tile:not([data-sector="Agriculture"]) { position:relative; padding-bottom:35px; background:linear-gradient(145deg, #ffffff60, transparent), var(--sector-top); }
+.app-shell .sector-ground { position:absolute; bottom:0; left:0; width:100%; height:30px; border-radius:0 0 18px 18px; color:var(--sector-edge); pointer-events:none; }
+.app-shell .sector-tile[data-sector="Fisheries"] { --sector-top:#e0eeea; --sector-edge:#729d97; padding-bottom:66px; }
+.app-shell .sector-tile[data-sector="Manufacturing"] { --sector-top:#e5e7df; --sector-edge:#8d988a; padding-bottom:70px; }
+.app-shell .sector-ground.sector-water { height:54px; }
+.app-shell .sector-ground.sector-machinery { height:60px; }
+.app-shell .sector-tile[data-sector="Job seekers"] { --sector-top:#e6e9df; --sector-edge:#8a9985; padding-bottom:66px; }
+.app-shell .sector-ground.sector-street { height:54px; }
+.app-shell .sector-tile[data-sector="Trade & retail"] { padding-bottom:72px; }
+.app-shell .sector-ground.sector-shop { height:62px; }
+.app-shell .sector-tile:has(.sector-landscape) { padding-bottom:44px; isolation:isolate; }
+.app-shell .sector-landscape { position:absolute; inset:0; width:100%; height:100%; border-radius:inherit; pointer-events:none; z-index:-1; }
+.app-shell .sector-tile:has(.sector-landscape) .sector-scenery { position:relative; }
+.app-shell .sector-tile:has(.sector-landscape) .sector-scenery,
+.app-shell .sector-landscape > g { display:none; }
+.app-shell .sector-map .sector-tile:has(.sector-landscape) { padding-bottom:18px; }
+.app-shell .sector-scenery { width:38px; height:24px; opacity:.65; }
+.app-shell .sector-ground.sector-machinery, .app-shell .sector-ground.sector-shop { height:36px; opacity:.75; }
+.app-shell .sector-tile[data-sector="Manufacturing"], .app-shell .sector-tile[data-sector="Trade & retail"] { padding-bottom:44px; }
+.app-shell .sector-tile:not([data-sector="Agriculture"]) .map-resident { min-height:34px; height:34px; }
+.app-shell .resident-figure { display:block; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:24px; height:36px; pointer-events:none; color:#83a58a; }
+.app-shell .mixed .resident-figure { color:#dfbf74; }
+.app-shell .oppose .resident-figure { color:#cb8879; }
+.app-shell .pending .resident-figure { color:#c9d1c8; }
+.app-shell .sector-tile[data-sector="Agriculture"] { --sector-top:#e6edd9; --sector-edge:#809864; position:relative; background:linear-gradient(150deg, #eff3e5, #d5e2c3); padding-bottom:35px; }
+.app-shell .agriculture-grass { position:absolute; inset:0; width:100%; height:100%; border-radius:inherit; pointer-events:none; }
+.app-shell .sector-tile[data-sector="Agriculture"] > :not(.agriculture-grass) { position:relative; }
+.app-shell .sector-tile[data-sector="Agriculture"] > .group-popover { position:absolute; }
+.app-shell .sector-tile[data-sector="Agriculture"] .map-resident { min-height:34px; height:34px; }
+.app-shell .sector-tile[data-sector="Agriculture"] .person-head { z-index:2; }
+.app-shell .sector-tile[data-sector="Agriculture"] .person-head::before { content:''; position:absolute; z-index:1; left:-4px; right:-4px; top:-2px; height:4px; border-radius:50%; background:linear-gradient(#ebd39a, #b99a59); box-shadow:0 1px 1px #59472b55; }
+.app-shell .sector-tile[data-sector="Agriculture"] .person-head::after { content:''; position:absolute; z-index:2; left:-1px; right:-1px; top:-6px; height:6px; border-radius:7px 7px 2px 2px; background:linear-gradient(100deg, #efdaa6, #c4a469); border-bottom:2px solid #8c7146; }
+.app-shell .sector-tile[data-sector="Agriculture"] .person-body::after { content:''; position:absolute; inset:2px 2px 0; border-radius:1px 1px 2px 2px; background:linear-gradient(to right, #485b59 0 20%, transparent 20% 80%, #485b59 80%), linear-gradient(to bottom, transparent 0 35%, #485b59 35%); box-shadow:inset -2px 0 #283c3b40; opacity:.85; }
+.app-shell .sector-tile[data-sector="Agriculture"] .map-resident:nth-child(4n+2) .person-body::after { inset:1px 1px 0; background:repeating-linear-gradient(0deg, transparent 0 4px, #f3e6c588 4px 5px), repeating-linear-gradient(90deg, transparent 0 4px, #f3e6c588 4px 5px); border-bottom:5px solid #5d6351; }
+.app-shell .sector-tile[data-sector="Agriculture"] .map-resident:nth-child(4n+3) .person-body::after { inset:1px 2px 0; background:linear-gradient(90deg, transparent 43%, #efe6cf 43% 57%, transparent 57%); border-bottom:6px solid #70604b; }
+.app-shell .sector-tile[data-sector="Agriculture"] .map-resident:nth-child(4n) .person-body::after { inset:2px 2px 0; background:linear-gradient(90deg, #a48a63, #d2bd94 45%, #a48a63); clip-path:polygon(20% 0, 80% 0, 70% 30%, 100% 100%, 0 100%, 30% 30%); }
 .app-shell .sector-tile[data-sector="Fisheries"] { --sector-top:#deeeed; --sector-edge:#729b9a; }
 .app-shell .sector-tile[data-sector="Construction"], .app-shell .sector-tile[data-sector="Manufacturing"] { --sector-top:#f0e5d4; --sector-edge:#b39a75; }
 .app-shell .sector-tile[data-sector="Trade & retail"], .app-shell .sector-tile[data-sector="Food service"] { --sector-top:#f1e0d7; --sector-edge:#b99580; }
