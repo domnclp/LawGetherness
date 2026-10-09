@@ -22,15 +22,14 @@ export default function Site() {
     <img className="landing-photo" src="/images/quiapo-manila.jpg" alt="People walking among market stalls in Quiapo, Manila" fetchPriority="high" />
     <div className="landing-shade" />
     <header className="landing-header">
-      <a className="landing-brand" href="#welcome" aria-label="LawGetherness home">Law<span>Getherness</span><small>ORDINANCE WIND TUNNEL</small></a>
-      <span className="landing-location">BUILT FOR OUR COMMUNITIES</span>
+      <a className="landing-brand" href="#welcome" aria-label="LawGetherness home">Law<span>Getherness</span><small>HEAR THE PEOPLE FIRST</small></a>
     </header>
     <main className="landing-main">
       <p className="landing-eyebrow">A LITTLE FORESIGHT. A BETTER TOMORROW.</p>
       <h1>Every law<br />touches a <em>life.</em></h1>
-      <p className="landing-description">See your draft through the eyes<br />of the community it could shape.</p>
+      <p className="landing-description">Test your draft through the eyes<br />of the community it could shape.</p>
       <a className="landing-cta" href="#workspace">Test a law <span aria-hidden="true">↗</span></a>
-      <a className="landing-scroll" href="#about">Discover how it works <span aria-hidden="true">↓</span></a>
+      <a className="landing-scroll" href="#how-it-works">Explore how the model works <span aria-hidden="true">↓</span></a>
     </main>
     <footer className="landing-footer">
       <div><span className="landing-coordinate">QUIAPO, MANILA · PHILIPPINES</span><p>Real communities inspire us.<br />Simulated perspectives help us explore.</p></div>
@@ -48,7 +47,7 @@ export default function Site() {
       <div className="landing-photo-story">
       <img className="landing-story-photo" src="/images/DSCF0102.jpg" alt="Black-and-white photograph of people marching with public-policy protest signs" width="1920" height="1280" loading="lazy" decoding="async" />
       <div className="landing-story-content">
-      <p className="landing-kicker">HOW IT WORKS</p>
+      <p className="landing-kicker">THE MODEL WORKS THROUGH…</p>
       <h2 id="process-title">Your draft. A few new perspectives.<br /><em>A more thoughtful next step.</em></h2>
       <ol className="landing-steps">
         <li><span className="landing-step-number">01 / DRAFT</span><h3>Start with an idea.</h3><p>Paste your ordinance or choose an example. Select a community of 50, 100, or 200 simulated residents.</p></li>
@@ -59,15 +58,15 @@ export default function Site() {
       </div>
       </div>
       <div className="landing-photo-pair">
-        <figure className="landing-documentary"><img src="/images/DSCF0279.jpg" alt="People gathered on a Manila street, with a central placard reading Para sa Bayan" width="1920" height="1280" loading="lazy" decoding="async" /><figcaption>Make space for the people a proposal could affect.</figcaption></figure>
-        <figure className="landing-documentary"><img src="/images/DSCF0312.jpg" alt="A demonstrator holding a handwritten sign about capitalism, corruption, and greed" width="1920" height="1280" loading="lazy" decoding="async" /><figcaption>Listen for concerns. Ask better questions.</figcaption></figure>
+        <figure className="landing-documentary"><img src="/images/DSCF0279.jpg" alt="People gathered on a Manila street, with a central placard reading Para sa Bayan" width="1920" height="1280" loading="lazy" decoding="async" /><figcaption>Do it for the people who could be most affected.</figcaption></figure>
+        <figure className="landing-documentary"><img src="/images/DSCF0312.jpg" alt="A demonstrator holding a handwritten sign about capitalism, corruption, and greed" width="1920" height="1280" loading="lazy" decoding="async" /><figcaption>Listen to what the people want.</figcaption></figure>
       </div>
     </section>
     <section className="landing-ai landing-section" id="local-ai" aria-labelledby="ai-title">
       <p className="landing-kicker">POWERED BY LOCAL AI</p>
       <div className="landing-editorial-grid">
         <h2 id="ai-title">A place to explore.<br /><em>Powered on your machine.</em></h2>
-        <div className="landing-prose"><p>The simulation uses Ollama to run a language model locally. Start Ollama with the project’s gemma3:4b model installed before running a simulation; the workspace checks whether it is ready.</p><p>Once the app and model are set up, inference can run without an internet connection. Your draft is processed by the configured local Ollama service.</p><p className="landing-ai-note">These are AI-generated perspectives from fictional residents, not real survey responses or legal validation. Use them to raise questions and support conversations with your actual community.</p></div>
+        <div className="landing-prose"><p>Explore how different people might react to your draft with AI that runs on your computer.</p><p>To get started, open Ollama with the gemma3:4b model installed. Ollama is the app that runs the AI. LawGetherness checks that it is ready before you begin. After setup, you can run simulations without an internet connection.</p><p className="landing-ai-note">The residents are fictional and their responses are created by AI. Use their views to spot possible problems and start conversations with your community. They do not replace a real survey or legal advice.</p></div>
       </div>
       <div className="landing-photo-story landing-closing-photo">
         <img className="landing-story-photo" src="/images/DSCF0313.jpg" alt="People standing beneath palm trees behind a large handwritten banner questioning public service and hardship" width="1920" height="1280" loading="lazy" decoding="async" />
@@ -79,7 +78,15 @@ export default function Site() {
       <p className="landing-kicker">ABOUT US</p>
       <div className="landing-editorial-grid">
         <h2 id="about-us-title">Better decisions begin<br />with <em>more voices.</em></h2>
-        <div className="landing-prose"><p>LawGetherness is a local AI workspace for thinking through how an ordinance might affect everyday life.</p><p>This page is a starting point for our story, team, and community work. More about the people behind the project will be added here.</p><a className="landing-text-link" href="#workspace">Test a law <span aria-hidden="true">↗</span></a></div>
+        <div className="landing-prose">
+          <h3 className="landing-team-name">Choco Mallows</h3>
+          <p>We’re the team behind LawGetherness, a local AI workspace for thinking through how an ordinance might affect everyday life.</p>
+          <ul className="landing-team-members" aria-label="Choco Mallows team">
+            <li><span>Zyrene Tapayan</span><a href="https://www.linkedin.com/in/zyrene-t-335068333" target="_blank" rel="noopener noreferrer" aria-label="Zyrene Tapayan on LinkedIn (opens in a new tab)">LinkedIn <span aria-hidden="true">↗</span></a></li>
+            <li><span>Angel Dominic Lopez</span><a href="https://www.linkedin.com/in/angel-dominic-lopez-1499b5302/" target="_blank" rel="noopener noreferrer" aria-label="Angel Dominic Lopez on LinkedIn (opens in a new tab)">LinkedIn <span aria-hidden="true">↗</span></a></li>
+          </ul>
+          <a className="landing-text-link" href="#workspace">Test a law <span aria-hidden="true">↗</span></a>
+        </div>
       </div>
     </section>
   </div>

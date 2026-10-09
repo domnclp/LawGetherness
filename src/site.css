@@ -14,9 +14,11 @@ body:has(.landing-page) { padding:0; background:#242722; }
 .landing-main h1 { font-family:Georgia, 'Times New Roman', serif; font-size:clamp(64px, 7.8vw, 118px); font-weight:400; letter-spacing:-4px; line-height:1.02; margin:0; color:#fffaf0; text-shadow:0 2px 24px #0003; }
 .landing-main h1 em { font-weight:400; }
 .landing-description { font:14px/1.8 Consolas, monospace; margin:26px 0 30px; color:#fffaf0; }
-.landing-cta { display:inline-flex; align-items:center; justify-content:space-between; gap:48px; min-width:210px; padding:19px 25px; font-size:16px; background:#f3efe4; color:#25362b; border:1px solid #f3efe4; transition:background .2s, transform .2s; }
-.landing-cta span { font-size:21px; line-height:1; }
-.landing-cta:hover { background:#fff; transform:translateY(-3px); }
+.landing-cta { display:inline-flex; align-items:center; justify-content:space-between; gap:30px; min-width:210px; min-height:58px; padding:10px 12px 10px 24px; border-radius:6px; font:500 17px/1.4 'Segoe UI', Arial, sans-serif; background:#f3efe4; color:#25362b; border:1px solid #dcd7c6; box-shadow:0 5px 18px #10181020; text-decoration:none; transition:background .25s, transform .25s, box-shadow .25s; }
+.landing-cta span { display:grid; place-items:center; width:36px; height:36px; border-radius:50%; background:#e2e5d7; color:#48563c; font-size:21px; line-height:1; transition:background .25s, color .25s; }
+.landing-cta:hover { background:#fffaf0; transform:translateY(-2px); box-shadow:0 8px 22px #10181030; }
+.landing-cta:hover span { background:#48563c; color:#fffaf0; }
+.landing-cta:focus-visible { outline:2px solid #a7b58e; outline-offset:5px; }
 .landing-footer { margin:0 5vw; padding:22px 0 26px; border-top:1px solid #ffffff45; display:flex; align-items:flex-end; justify-content:space-between; gap:24px; }
 .landing-footer p { font-size:11px; line-height:1.8; margin:8px 0 0; color:#e3e6dc; }
 .landing-credit { font-size:10px; line-height:1.8; color:#e3e6dc; text-decoration:underline; text-underline-offset:4px; }
@@ -65,6 +67,12 @@ body:has(.landing-page) { padding:0; background:#242722; }
 .landing-ai { background:#34382d; color:#f2ede2; }
 .landing-about-us { background:#f2ede2; color:#373f2c; }
 .landing-about-us .landing-prose p { max-width:560px; }
+.landing-team-name { margin:0 0 16px; font:400 30px/1.2 Georgia, 'Times New Roman', serif; color:#373f2c; }
+.landing-team-members { list-style:none; padding:0; margin:26px 0; display:grid; gap:18px; }
+.landing-team-members li { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; font:500 16px/1.5 'Segoe UI', Arial, sans-serif; }
+.landing-team-members a { color:#53643c; font-size:13px; text-decoration:underline; text-underline-offset:4px; }
+.landing-team-members a:hover { color:#25362b; }
+.landing-team-members a:focus-visible { outline:2px solid #88976d; outline-offset:4px; }
 .landing-ai-note { border-top:1px solid #6c725d; padding-top:22px; color:#dadfcf; }
 .landing-closing { display:flex; align-items:center; justify-content:space-between; gap:32px; margin-top:65px; padding-top:45px; border-top:1px solid #6c725d; }
 .landing-closing>p { font:400 clamp(30px, 3.3vw, 46px)/1.2 Georgia, 'Times New Roman', serif; margin:0; }
