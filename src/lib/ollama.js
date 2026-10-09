@@ -32,11 +32,15 @@ async function post(body, signal) {
   return res
 }
 
+// min_p drops very unlikely tokens: a 4B model at temperature 0.7 otherwise invents Tagalog words
+// ("babandila", "nagpapatubig") and stray fragments; openers and angles still give variety.
+const MIN_P = 0.1
+
 // One structured call. Returns the parsed JSON object (throws SyntaxError on bad JSON).
 export async function chat({ model = MODEL, system, user, schema, numPredict = 120, temperature = 0.7, signal }) {
   const res = await post({
     model, stream: false, format: schema, ...noThink(model),
-    options: { temperature, num_predict: numPredict, num_ctx: NUM_CTX },
+    options: { temperature, min_p: MIN_P, num_predict: numPredict, num_ctx: NUM_CTX },
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
   }, signal)
   const data = await res.json()
@@ -48,7 +52,7 @@ export async function chat({ model = MODEL, system, user, schema, numPredict = 1
 export async function chatStream({ model = MODEL, system, user, schema, numPredict = 500, temperature = 0.8, signal, onToken }) {
   const res = await post({
     model, stream: true, format: schema, ...noThink(model),
-    options: { temperature, num_predict: numPredict, num_ctx: NUM_CTX },
+    options: { temperature, min_p: MIN_P, num_predict: numPredict, num_ctx: NUM_CTX },
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
   }, signal)
   const reader = res.body.getReader()

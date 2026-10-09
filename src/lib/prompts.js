@@ -131,13 +131,14 @@ Answer only in the JSON schema.`
 // Stance-neutral quote openers, rotated by resident. Example quotes in the prompt were copied word
 // for word ("wala naman kaming videoke" under a curfew), and without them 60% of quotes opened with
 // "Ayos lang sa akin 'yan"; a given opener keeps 200 voices varied for free.
-const OPENERS = ['Para sa akin,', 'Kung ako ang tatanungin,', 'Sa totoo lang,', 'Ang inaalala ko,', 'Ang tanong ko,',
+// (No worry-leaning openers: "Ang inaalala ko" pushed supporters into worried quotes.)
+const OPENERS = ['Para sa akin,', 'Kung ako ang tatanungin,', 'Sa totoo lang,', 'Sa ganang akin,', 'Kung ako lang,',
   'Dito sa amin,', 'Basta ako,', 'Alam mo,', 'Kung tutuusin,', 'Ang mahalaga,', 'Sa nakikita ko,', 'Simple lang,']
 
 // Last-resort label fixer, applied after the one re-ask. The quote is written after the stance,
 // so it fixes the judgment/comply labels where it can and only flips a stance for unjust rules.
 // lawful: the brief found an ordinary, lawful regulation (smokers called a littering ban "unfair or harmful").
-const CONCERN = /nakakabahala|kotong|lumala|magkagulo|sayang lang|walang silbi|hindi maganda/i
+const CONCERN = /nakakabahala|kotong|lumala|magkagulo|sayang lang|walang silbi|hindi maganda|^baka\b|problema|nagpapahirap|mahihirapan|hassle|hindi patas|magulo/i
 export function reconcile(r, lawful = false) {
   if (!r || !r.judgment) return r
   let { stance, judgment, comply } = r
@@ -204,7 +205,13 @@ const MISREADS = [
   [/litter|rubbish/i, /(can't|cannot|not to|no longer|bawal) .{0,20}(give|hand) out .{0,20}(bags|goods)/i,
     'it bans dropping trash or spitting in public; handing out bags or goods is not affected'],
   [/reserv\w*.{0,40}park/i, /(can'?t|cannot|stop|no (more|longer)|bawal) .{0,20}park(ing)?\b|(can'?t|cannot) just pull up|find (somewhere|another place) (else )?to park|can'?t leave my car|hindi na (pwede|puwede)(ng)? (mag-?)?park|park(ing)? .{0,30}hindi na (pwede|puwede)|park wherever|sidewalk|can (now )?put (up )?cones/i,
-    'only reserving the curb (cones, chairs, signs) is banned; parking, stopping and unloading on the street are unchanged']
+    'only reserving the curb (cones, chairs, signs) is banned; parking, stopping and unloading on the street are unchanged'],
+  [/plastic bags?/i, /(bring\w*|magdala)\b.{0,30}\bbags?\b.{0,40}(deliver|order|online)|(deliver\w*|order\w*)\b.{0,40}(bring\w*|magdala)\b.{0,20}\bbags?\b/i,
+    'stores stop handing out plastic bags; delivery and takeout still come packed by the store, you never bring a bag to a delivery'],
+  [/reserv\w*.{0,40}park/i, /\bjeep(ney)?s?\b|\btricycles?\b|traffic (will )?(flow|be smoother)|madali ang pagdaan|mas maluwag ang (daan|kalsada)/i,
+    'it only stops households saving the curb in front of their house (cones, chairs, signs) on residential side streets; jeepneys, tricycles and traffic are not the point', ['driver']],
+  [/litter|rubbish|spit/i, /(watch|bantay)\w*.{0,40}(drag|smok|yosi|sigarilyo)|(ban|limit|restrict)\w*.{0,15}smok|target\w*.{0,25}smokers/i,
+    'smoking is still allowed; only dropping cigarette butts or spitting in public is banned']
 ]
 const TIME_WINDOW = /\d{1,2}(?::\d\d)?\s*[AP]\.?M\.?\s*(?:to|until|-|–)\s*\d{1,2}(?::\d\d)?\s*[AP]\.?M\.?/i
 const WRONG_HOURS = /after (school|class(es)?|dinner|5|6)\b|pagkatapos ng (eskwela|klase|school)|until [1-8] ?PM|past [1-8] ?PM/i
@@ -237,6 +244,9 @@ export function findContradiction(r, persona, brief = '', affected = null, ordin
   const said = raw.replace(/[‘’]/g, "'")
   for (const [rule, misread, fix, skip = []] of MISREADS) {
     if (rule.test(ordinanceText) && misread.test(said) && !skip.includes(persona.group)) return `you misread the ordinance: ${fix}`
+  }
+  if (/Penalty: (not stated|as provided)/i.test(brief) && /(fines?|multa|penalt(y|ies))\b.{0,25}(harsh|high|mahal|malaki|mabigat)|₱\s?\d/i.test(said)) {
+    return 'the penalty amount is not stated; do not describe a fine or how harsh it is'
   }
   const win = ordinanceText.match(TIME_WINDOW)
   if (win && WRONG_HOURS.test(said)) return `the ordinance only covers ${win[0].trim()}, not other hours`
@@ -292,6 +302,7 @@ export function cleanQuote(q = '') {
   if (noOpener.split(/\s+/).length >= 4) s = noOpener
   const stripped = s.replace(INTERJECTION, '')
   if (stripped.length > 12) s = stripped
+  s = s.replace(/^(hin|['‘’]?di ba\??)\b[,.!?\s]*/i, '').replace(/[,\s]+hin\.?$/i, '')
   s = s.charAt(0).toUpperCase() + s.slice(1)
   return s && !/[.!?…]$/.test(s) ? s + '.' : s
 }
@@ -312,7 +323,7 @@ const DETAIL_TOPICS = [
   // Not bare "school": the curfew's "school activities" exemption told parents of young kids the curfew burdened them.
   [/young kids in elementary/, /school zone|of (a |any )?schools?\b|near schools/, 'I have no young kids in school'],
   // \bpark: "SPARK v. Quezon City" in the curfew text matched bare "park".
-  [/parks it on the street/, /\bpark(ing)?\b|\bcurb/,
+  [/parks it on the street|drives a private car/, /\bpark(ing)?\b|\bcurb/,
     d => d.some(x => /garage/.test(x)) ? 'I park my car in my own garage, not on the street' : 'I do not park a car on the street'],
   [/drives a/, /traffic|idl|motorist|\bdrivers?\b|road closure|number coding/, 'I do not drive; I ride as a passenger or walk'],
   [/drinks with neighbors/, /drink|liquor|alcohol/, 'I do not drink outside'],
@@ -340,9 +351,11 @@ const PROTECTS = [
 const HOOKS = [
   [/smokes/, /litter|spit|rubbish/i, 'I smoke daily; my cigarette butts and spitting count as littering'],
   [/packs takeout|carinderia/, /litter|rubbish/i, 'the takeout containers we hand out often end up as street litter'],
+  [/plastic bags/, /litter|rubbish/i, 'the plastic bags I hand out every day often end up as litter near my stall'],
+  [/takeout|food delivery/, /plastic bag/i, 'my takeout and delivery orders will come in paper bags or none; I never have to bring a bag to a delivery'],
   [/teenager/, /parents?[\s\S]{0,200}penali/i, 'as the parent of a teenager who goes out at night, I can be penalized']
 ]
-const NIGHT_WORK = /night|before dawn|late/
+const NIGHT_WORK = /night|before dawn|late|\b[1-4] AM\b|until (9|10|11) PM/
 
 // { yes: details this ordinance restricts or burdens, protects: details it protects,
 //   no: facts about what I do NOT do }. person (optional) supplies the work schedule.
@@ -361,13 +374,16 @@ export function relevantDetails(details = [], ordinanceText = '', job = '', pers
     else if (neg && !details.some(d => detail.test(d)) &&
       !(neg.startsWith('I do not sell') && /vendor|sari-sari|small business|store/i.test(job))) no.push(neg)
   }
+  // Hooks go FIRST: the insight angle is built from yes[0], and the specific stake ("I work nights")
+  // beats the generic detail ("has a teenager").
+  const hooks = []
   for (const [detail, topic, line] of HOOKS) {
-    if (topic.test(ordinanceText) && details.some(d => detail.test(d))) yes.push(line)
+    if (topic.test(ordinanceText) && details.some(d => detail.test(d))) hooks.push(line)
   }
   if (/curfew|discipline hours/.test(text) && details.some(d => /teenager/.test(d)) && NIGHT_WORK.test(person.schedule || '')) {
-    yes.push(`my work hours (${person.schedule}) mean I am often not home to watch my teenager at night`)
+    hooks.unshift(`my work hours (${person.schedule}) mean I am often not home to watch my teenager at night`)
   }
-  return { yes: [...new Set(yes)], no: [...new Set(no)], protects: [...new Set(protects)] }
+  return { yes: [...new Set([...hooks, ...yes])], hooks, no: [...new Set(no)], protects: [...new Set(protects)] }
 }
 
 // Shared "how this ordinance meets my life" lines for crowd and panel prompts.

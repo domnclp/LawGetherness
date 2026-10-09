@@ -78,7 +78,9 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
   const plan = personas.map(p => {
     const rel = relevantDetails(p.details, ordinanceText, p.job, p)
     const touched = rel.yes.length > 0 || rel.protects.length > 0 || affected.includes(p.group)
-    return { rel, touched, issue: touched ? pickIssue(p, issues, rel, k++) : '' }
+    // A resident with a specific stake (a hook) argues from it; brief issues only for the rest
+    // (judges saw the night-shift nurse copy a brief issue instead of her real problem).
+    return { rel, touched, issue: touched && !rel.hooks.length ? pickIssue(p, issues, rel, k++) : '' }
   })
   const check = (r, p) => findContradiction(r, p, brief, affected, ordinanceText)
   const ask = (p, i, s, note = '') => chat({
