@@ -37,10 +37,12 @@ async function post(body, signal) {
 const MIN_P = 0.1
 
 // One structured call. Returns the parsed JSON object (throws SyntaxError on bad JSON).
-export async function chat({ model = MODEL, system, user, schema, numPredict = 120, temperature = 0.7, signal }) {
+// seed (optional): fixed per resident, so the same draft gives the same crowd and a before/after
+// comparison shows the effect of the amendment, not sampling noise.
+export async function chat({ model = MODEL, system, user, schema, numPredict = 120, temperature = 0.7, seed, signal }) {
   const res = await post({
     model, stream: false, format: schema, ...noThink(model),
-    options: { temperature, min_p: MIN_P, num_predict: numPredict, num_ctx: NUM_CTX },
+    options: { temperature, min_p: MIN_P, num_predict: numPredict, num_ctx: NUM_CTX, ...(seed !== undefined && { seed }) },
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
   }, signal)
   const data = await res.json()

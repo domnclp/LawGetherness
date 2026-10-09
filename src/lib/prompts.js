@@ -82,7 +82,9 @@ Where/when: ${b.where_when}
 Penalty: ${b.penalty}
 Exemptions: ${b.exemptions}`
   if (b.legality === 'likely valid' && !b.targets_identity) {
-    return `${head}\nLegal and ethical check: an ordinary, lawful regulation. Real benefit: ${b.public_benefit}`
+    // "Real benefit: None" on a lawful rule (the model's slip) made residents call it pointless.
+    const benefit = /^\s*(none|not stated|n\/a)\b/i.test(b.public_benefit || '') ? '' : ` Real benefit: ${b.public_benefit}`
+    return `${head}\nLegal and ethical check: an ordinary, lawful regulation.${benefit}`
   }
   return `${head}
 Legal and ethical check:
@@ -144,7 +146,8 @@ export function reconcile(r, lawful = false) {
   let { stance, judgment, comply } = r
   if (judgment === 'good rule but costly for me' && r.impact <= 2) judgment = 'good rule'   // impact 1-2 names no real cost
   if (lawful && judgment === 'unfair or harmful') { judgment = r.impact >= 3 ? 'good rule but costly for me' : 'pointless'; stance = stance === 'support' ? 'mixed' : stance }
-  if (stance === 'support' && CONCERN.test(r.quote || '') && !/\bpero\b|\bbut\b/i.test(r.quote || '')) stance = 'mixed'
+  // Only residents with a real stake; "walang problema" is negated, not a concern.
+  if (stance === 'support' && r.impact >= 3 && mentions(r.quote || '', CONCERN) && !/\bpero\b|\bbut\b/i.test(r.quote || '')) stance = 'mixed'
   if (judgment === 'unfair or harmful') stance = 'oppose'
   else if (judgment === 'good rule' && stance === 'oppose' && r.impact <= 2) judgment = 'pointless'
   else if (judgment === 'good rule but costly for me' && stance === 'support' && r.impact >= 4) stance = 'mixed'
@@ -169,7 +172,7 @@ export function tidyEnd(s = '', max = 999) {
 // Finds contradictions worth one re-ask. Returns a short reason, or '' if the answer is consistent.
 // Checks: "not really" with high impact, a protected resident opposing a lawful rule, claiming a
 // habit/job the resident doesn't have, and a quote whose tone contradicts the stance.
-const NEGATED = /(hindi|di|wala|never|not|don't|do not)\b[^.,!?]{0,18}$/i
+const NEGATED = /(hindi|di|wala|walang|wala nang|never|not|don't|do not)\b[^.,!?]{0,18}$/i
 function mentions(text, pattern) {
   for (const m of text.matchAll(new RegExp(pattern.source, 'gi'))) {
     if (!NEGATED.test(text.slice(0, m.index))) return true   // "hindi ako naninigarilyo" is fine
@@ -202,19 +205,32 @@ const MISREADS = [
     'the curfew covers only minors under 18; it does not restrict you as an adult'],
   [/litter|rubbish/i, /(can't|cannot|not to|bawal|no longer) .{0,30}\b(in|into|sa) (the )?(trash )?(bins?|basurahan)|even in the bins?/i,
     'the ordinance bans littering in public places; putting trash in bins is what it wants'],
-  [/litter|rubbish/i, /(can't|cannot|not to|no longer|bawal) .{0,20}(give|hand) out .{0,20}(bags|goods)/i,
+  [/litter|rubbish/i, /(stop|can'?t|cannot|not to|no longer|bawal|another way to)\s.{0,20}(giv\w*|hand\w*) out\b.{0,25}(bags|goods)|bags?\b.{0,30}(seen as|count as|are now) litter/i,
     'it bans dropping trash or spitting in public; handing out bags or goods is not affected'],
   [/reserv\w*.{0,40}park/i, /(can'?t|cannot|stop|no (more|longer)|bawal) .{0,20}park(ing)?\b|(can'?t|cannot) just pull up|find (somewhere|another place) (else )?to park|can'?t leave my car|hindi na (pwede|puwede)(ng)? (mag-?)?park|park(ing)? .{0,30}hindi na (pwede|puwede)|park wherever|sidewalk|can (now )?put (up )?cones/i,
     'only reserving the curb (cones, chairs, signs) is banned; parking, stopping and unloading on the street are unchanged'],
-  [/plastic bags?/i, /(bring\w*|magdala)\b.{0,30}\bbags?\b.{0,40}(deliver|order|online)|(deliver\w*|order\w*)\b.{0,40}(bring\w*|magdala)\b.{0,20}\bbags?\b/i,
+  [/plastic bags?/i, /(bring\w*|magdala)\b.{0,30}\bbags?\b.{0,40}(deliver|order|online)|(deliver\w*|order\w*)\b.{0,40}(bring\w*|magdala)\b.{0,20}\bbags?\b|ask (for|them for) (a |paper )?bags?/i,
     'stores stop handing out plastic bags; delivery and takeout still come packed by the store, you never bring a bag to a delivery'],
-  [/reserv\w*.{0,40}park/i, /\bjeep(ney)?s?\b|\btricycles?\b|traffic (will )?(flow|be smoother)|madali ang pagdaan|mas maluwag ang (daan|kalsada)/i,
+  [/reserv\w*.{0,40}park/i, /\bjeep(ney)?s?\b|\btricycles?\b|traffic (will )?(flow|be smoother)|madali ang pagdaan|mas maluwag ang (daan|kalsada)|walang sasakyan sa (kalye|kalsada)|no cars on the street|ticket.{0,25}park/i,
     'it only stops households saving the curb in front of their house (cones, chairs, signs) on residential side streets; jeepneys, tricycles and traffic are not the point', ['driver']],
-  [/litter|rubbish|spit/i, /(watch|bantay)\w*.{0,40}(drag|smok|yosi|sigarilyo)|(ban|limit|restrict)\w*.{0,15}smok|target\w*.{0,25}smokers/i,
+  [/litter|rubbish|spit/i, /(watch|bantay)\w*.{0,40}(drag|smok|yosi|sigarilyo)|(ban|limit|restrict)\w*.{0,15}smok|target\w*.{0,25}smokers|not to smoke|can'?t smoke|stop smoking|no more smoking|bawal (na )?(mag-?)?(yosi|manigarilyo)/i,
     'smoking is still allowed; only dropping cigarette butts or spitting in public is banned']
 ]
 const TIME_WINDOW = /\d{1,2}(?::\d\d)?\s*[AP]\.?M\.?\s*(?:to|until|-|–)\s*\d{1,2}(?::\d\d)?\s*[AP]\.?M\.?/i
-const WRONG_HOURS = /after (school|class(es)?|dinner|5|6)\b|pagkatapos ng (eskwela|klase|school)|until [1-8] ?PM|past [1-8] ?PM/i
+// Any clock time in the answer that falls outside the ordinance's window (the resident's own work
+// hours are fine to mention). Handles windows that cross midnight, like 10 PM-5 AM.
+const to24 = (h, ap) => (+h % 12) + (/p/i.test(ap) ? 12 : 0)
+function outsideWindow(win, said, schedule = '') {
+  const [a, b] = [...win.matchAll(/(\d{1,2})(?::\d\d)?\s*([AP])\.?M/gi)].map(m => to24(m[1], m[2]))
+  if (a === undefined || b === undefined) return false
+  return [...said.matchAll(/\b(\d{1,2})(?::\d\d)?\s*([AP])\.?M\b/gi)].some(m => {
+    const near = said.slice(Math.max(0, m.index - 40), m.index + 20)
+    if (schedule.includes(`${m[1]} ${m[2].toUpperCase()}M`) && /fish|work|shift|driv|leave|alis|trabaho|pasada|biyahe|deliver|market/i.test(near)) return false
+    const t = to24(m[1], m[2])
+    return a > b ? (t > b && t < a) : (t < a || t > b)
+  })
+}
+const WRONG_HOURS =/after (school|class(es)?|dinner|5|6)\b|pagkatapos ng (eskwela|klase|school)|until [1-8] ?PM|past [1-8] ?PM/i
 // Invented relatives (childless residents claimed kids, most named "Ben").
 const KIN = /\b(anak ko|mga anak ko|apo ko|pamangkin ko|pinsan ko|my (younger |little )?(anak|son|daughter|kids?|children|grand(son|daughter|child|children|kids?)|apo|nephew|niece|cousins?))\b/i
 const NAMED_KIN = /\b(son|daughter|grandson|granddaughter|anak|apo|cousin|pinsan)\b,?\s+(si\s+)?[A-Z][a-z]+/
@@ -249,7 +265,7 @@ export function findContradiction(r, persona, brief = '', affected = null, ordin
     return 'the penalty amount is not stated; do not describe a fine or how harsh it is'
   }
   const win = ordinanceText.match(TIME_WINDOW)
-  if (win && WRONG_HOURS.test(said)) return `the ordinance only covers ${win[0].trim()}, not other hours`
+  if (win && (WRONG_HOURS.test(said) || outsideWindow(win[0], said, persona.schedule))) return `the ordinance only covers ${win[0].trim()}, not other hours`
   if (r.touches_me === 'not really' && r.impact >= 4) return 'you said it does not really touch you, yet rated impact ' + r.impact
   // Who is affected comes from the ordinance text only: model-written brief words ("reduced litter",
   // "traffic flow") marked 10 residents as directly affected when they were not.
@@ -351,7 +367,7 @@ const PROTECTS = [
 const HOOKS = [
   [/smokes/, /litter|spit|rubbish/i, 'I smoke daily; my cigarette butts and spitting count as littering'],
   [/packs takeout|carinderia/, /litter|rubbish/i, 'the takeout containers we hand out often end up as street litter'],
-  [/plastic bags/, /litter|rubbish/i, 'the plastic bags I hand out every day often end up as litter near my stall'],
+  [/plastic bags/, /litter|rubbish/i, 'handing out plastic bags is still allowed; only bags or trash dropped on the street near my stall count as littering'],
   [/takeout|food delivery/, /plastic bag/i, 'my takeout and delivery orders will come in paper bags or none; I never have to bring a bag to a delivery'],
   [/teenager/, /parents?[\s\S]{0,200}penali/i, 'as the parent of a teenager who goes out at night, I can be penalized']
 ]
@@ -451,7 +467,7 @@ const INSIGHT_KINDS = [
 
 // Picks the brief issue closest to this resident's stake (word overlap); otherwise rotates by k,
 // so affected residents spread across all the issues instead of repeating one.
-const words = s => new Set(String(s).toLowerCase().replace(/[^a-z0-9ñ\s]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !STOP.has(w)))
+export const words = s => new Set(String(s).toLowerCase().replace(/[^a-z0-9ñ\s]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !STOP.has(w)))
 export function pickIssue(r, issues = [], rel = { yes: [] }, k = 0) {
   if (!issues.length) return ''
   const mine = words(`${rel.yes.join(' ')} ${r.job} ${r.group}`)
@@ -663,7 +679,7 @@ Voices: ${voices.join(' | ')}`
 // signal for the councilor ("raised by 12 residents") instead of 12 copies of one line.
 const STOP = new Set(('the and for with that this they their from will would should could more need needs like have when what which about into only also than them some just very make sure ' +
   'ordinance barangay city people residents resident ng sa na at ang mga ko po para pero lang yung kasi naman').split(' '))
-const jaccard = (a, b) => { let n = 0; for (const w of a) if (b.has(w)) n++; return n / (a.size + b.size - n || 1) }
+export const jaccard = (a, b) => { let n = 0; for (const w of a) if (b.has(w)) n++; return n / (a.size + b.size - n || 1) }
 
 // Returns up to n clusters: [{ text, count, groups[], avgImpact }], most important first
 // (score = sum of impact, doubled for residents directly touched).

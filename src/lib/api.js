@@ -12,7 +12,7 @@ import {
   CROWD_SYSTEM, crowdUser, PANEL_SYSTEM, LOOPHOLE_SYSTEM_EXTRA, panelUser,
   REPORT_SYSTEM, REPORT_UNLAWFUL_SYSTEM, reportUser, summarizeCrowd, cleanQuote, legalCheckText, reconcile,
   findContradiction, neighborsDigest, fairnessLens, missingSections, affectedGroupsFor,
-  relevantDetails, pickIssue, tidyEnd, clusterInsights, bystanderEffect
+  relevantDetails, pickIssue, tidyEnd, clusterInsights, bystanderEffect, words, jaccard
 } from './prompts.js'
 
 // 200 seeded adult residents (same every run), national approximate mix. Smaller runs use
@@ -38,7 +38,7 @@ export { SAMPLES }
 const briefCache = new Map()
 export function getBrief(ordinanceText) {
   if (!briefCache.has(ordinanceText)) {
-    const call = () => chat({ system: BRIEF_SYSTEM, user: briefUser(ordinanceText), schema: briefSchema, numPredict: 850, temperature: 0.2 })
+    const call = () => chat({ system: BRIEF_SYSTEM, user: briefUser(ordinanceText), schema: briefSchema, numPredict: 850, temperature: 0 })   // deterministic: one brief field ("Real benefit: None") swung a 30-resident curfew run from 23 to 9 support
     const p = call().catch(call).then(b => checkBrief(b, ordinanceText))
     briefCache.set(ordinanceText, p)
     p.catch(() => briefCache.delete(ordinanceText))   // don't cache failures
@@ -82,10 +82,21 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
     // (judges saw the night-shift nurse copy a brief issue instead of her real problem).
     return { rel, touched, issue: touched && !rel.hooks.length ? pickIssue(p, issues, rel, k++) : '' }
   })
+  // Crowd-level checks on top of findContradiction: a quote that repeats a neighbor's ("Maganda 'yan
+  // para sa mga bata" four times), and "for the children" under a rule that has nothing to do with kids.
+  const seen = []
+  const dupOf = r => { const w = words(r?.quote || ''); return w.size >= 3 ? seen.find(x => jaccard(w, x.w) >= 0.5)?.q : undefined }
+  const kidsTopic = /minor|curfew|child|youth|school/i.test(ordinanceText)
   const check = (r, p) => findContradiction(r, p, brief, affected, ordinanceText)
+    || (!kidsTopic && /para sa (mga )?bata|\bthe kids\b/i.test(r?.quote || '') ? 'this ordinance is not about children; speak about what it changes on your street' : '')
+    || (dupOf(r) ? `your quote repeats a neighbor ("${dupOf(r)}"); make a different point from your own angle: ${p.angle}` : '')
+  const accept = r => { if (r?.quote) seen.push({ q: r.quote, w: words(r.quote) }); return r }
+  // Seed per resident and attempt: the same draft gives the same crowd (fair before/after runs),
+  // while a retry after bad JSON or a re-ask still gets a fresh sample.
   const ask = (p, i, s, note = '') => chat({
     system: CROWD_SYSTEM, user: crowdUser(p, brief, affected, ordinanceText, plan[i].issue) + note,
-    schema: plan[i].touched ? crowdSchema : crowdSchemaNoInsight, numPredict: plan[i].touched ? 300 : 200, signal: s
+    schema: plan[i].touched ? crowdSchema : crowdSchemaNoInsight, numPredict: plan[i].touched ? 300 : 220,
+    seed: 1000 * (plan[i].tries = (plan[i].tries || 0) + 1) + p.id, signal: s
   }).then(r => ({
     ...r,
     effect: plan[i].touched ? tidyEnd(r.effect, 130) : bystanderEffect(plan[i].rel, lawful),
@@ -105,12 +116,12 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
   const tasks = personas.map((p, i) => async s => {
     const first = await ask(p, i, s)
     const problem = check(first, p)
-    if (!problem) return reconcile(first, lawful)
+    if (!problem) return accept(reconcile(first, lawful))
     // One re-ask with the specific problem named. Keep the second answer if it fixed that problem
     // (even if a smaller one remains); otherwise keep the first.
     const second = await ask(p, i, s, `\n\nYour previous answer was inconsistent: ${problem}. Answer again, consistent with the facts about you.`).catch(() => null)
     const final = second && check(second, p) !== problem ? { ...second, reasked: true } : first
-    return reconcile(scrub(final, p, i), lawful)
+    return accept(reconcile(scrub(final, p, i), lawful))
   })
   const results = await runPool(tasks, {
     concurrency: 2,
