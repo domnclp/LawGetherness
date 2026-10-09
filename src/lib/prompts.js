@@ -190,7 +190,7 @@ const MISREADS = [
     'only reserving the curb (cones, chairs, signs) is banned; parking on the street is still allowed']
 ]
 const TIME_WINDOW = /\d{1,2}(?::\d\d)?\s*[AP]\.?M\.?\s*(?:to|until|-|–)\s*\d{1,2}(?::\d\d)?\s*[AP]\.?M\.?/i
-const WRONG_HOURS = /after (school|class(es)?|dark|dinner|5|6)\b|pagkatapos ng (eskwela|klase|school)|until [1-8] ?PM/i
+const WRONG_HOURS = /after (school|class(es)?|dinner|5|6)\b|pagkatapos ng (eskwela|klase|school)|until [1-8] ?PM|past [1-8] ?PM/i
 // Invented relatives (childless residents claimed kids, most named "Ben").
 const KIN = /\b(anak ko|mga anak ko|apo ko|pamangkin ko|pinsan ko|my (younger |little )?(anak|son|daughter|kids?|children|grand(son|daughter|child|children|kids?)|apo|nephew|niece|cousins?))\b/i
 const NAMED_KIN = /\b(son|daughter|grandson|granddaughter|anak|apo|cousin|pinsan)\b,?\s+(si\s+)?[A-Z][a-z]+/
@@ -204,8 +204,9 @@ const JOB_WORDS = {
   'construction worker': /construction|site ko|\bobra\b/i
 }
 // Speaking for another sector the ordinance doesn't touch ("sana isipin ang mga tricycle driver").
+// Not checked for vehicle/parking rules, where talking about motorists IS the topic.
 const OTHER_SECTORS = [
-  [/jeepney drivers?|tricycle drivers?|mga driver/i, 'driver'],
+  [/jeepney drivers?|tricycle drivers?/i, 'driver'],
   [/\bvendors\b|tindera|nagtitinda/i, 'vendor / store worker'],
   [/farm workers|farmers|magsasaka/i, 'farmer']
 ]
@@ -243,6 +244,7 @@ export function findContradiction(r, persona, brief = '', affected = null, ordin
   }
   if (Array.isArray(affected)) {
     for (const [re, g] of OTHER_SECTORS) {
+      if (g === 'driver' && /vehicle|motor|\bpark/i.test(ordinanceText)) continue
       if (g !== persona.group && !affected.includes(g) && re.test(said)) return `this ordinance does not affect the work of the ${g} group; speak only about your own life`
     }
   }
@@ -426,6 +428,13 @@ export function crowdUser(r, brief, affectedGroups = null, ordinanceText = '', i
       : ''
   const touch = factLines(rel, work === true ? '' : 'So this ordinance restricts nothing I personally do.')
   const home = r.lives_with ? ` Home: ${r.lives_with}.` : ` Household of ${r.household}.`
+  // Rules about minors: a resident with no kids still has a real view (the neighbors' kids), so say so
+  // instead of letting the model invent a grandson to make it personal.
+  const kidsNote = /minor|curfew|discipline hours|youth/i.test(topic) && !(r.details || []).some(d => /teenager|young kids|minor/.test(d))
+    ? '\nNo minor lives with me; any kids I mention are the neighbors\' kids.' : ''
+  // Time-limited rules: state the hours as one plain line (residents turned 10 PM-5 AM into "after school").
+  const win = ordinanceText.match(TIME_WINDOW)
+  const hoursNote = win ? `\nIt applies ONLY ${win[0].trim().replace(/\.$/, '')}. Daytime, after school, and early evening are NOT covered.` : ''
   const hours = r.schedule && TIME_RULE.test(topic) ? ` Usual hours: ${r.schedule}.` : ''
   // "Long overdue" is a fine angle for a lawful rule and a terrible one for an unjust one.
   const lawful = /ordinary, lawful regulation/.test(brief)
@@ -434,10 +443,10 @@ export function crowdUser(r, brief, affectedGroups = null, ordinanceText = '', i
     ? `\nInsight angle: ${issue ? `"${issue}"` : INSIGHT_KINDS[(r.id ?? 0) % INSIGHT_KINDS.length]}, seen from ${rel.yes[0] ? `my situation (${rel.yes[0]})` : `my work as a ${r.job}`}.`
     : `\nMy angle on rules that don't touch me: ${bystander}.`
   return `Resident: ${r.age}-year-old ${r.job} (${r.employment}), monthly income: ${r.income}, commutes by ${r.commute}, Purok ${r.purok}.${home}${hours}
-${[workLine, touch].filter(Boolean).join('\n')}
+${[workLine, touch].filter(Boolean).join('\n')}${kidsNote}
 Values: ${r.values}. Outlook: ${r.outlook}. Voice: ${r.voice}. Quote opener: "${OPENERS[(r.id ?? 0) % OPENERS.length]}"${angle}
 Ordinance in plain words:
-${brief}`
+${brief}${hoursNote}`
 }
 
 // ---------- Deep panel ----------
