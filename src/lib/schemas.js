@@ -62,6 +62,8 @@ export const panelSchema = {
 export const reportSchema = {
   type: 'object',
   properties: {
+    // Scratchpad: the model reasons here before writing the visible fields; api.js strips it.
+    analysis: { type: 'string', maxLength: 400 },
     headline: { type: 'string', maxLength: 200 },
     most_affected: { type: 'array', items: { type: 'string' }, maxItems: 4 },
     top_loopholes: { type: 'array', items: { type: 'string' }, maxItems: 4 },
@@ -79,5 +81,5 @@ export const reportSchema = {
       }
     }
   },
-  required: ['headline', 'most_affected', 'top_loopholes', 'amendments']
+  required: ['analysis', 'headline', 'most_affected', 'top_loopholes', 'amendments']
 }

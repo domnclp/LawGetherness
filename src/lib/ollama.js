@@ -5,7 +5,9 @@
 export let MODEL = 'gemma3:4b'
 export function setModel(m) { MODEL = m }
 
-const NUM_CTX = 2048
+// 3072, not 2048: the report prompt (ordinance + legal check + crowd stats + panel) plus its output
+// overflowed 2048. One size for every call so Ollama never reloads the model between calls.
+const NUM_CTX = 3072
 
 // Qwen3 models reason out loud by default; turn that off so tokens go to the answer.
 const noThink = model => (model.startsWith('qwen3') ? { think: false } : {})

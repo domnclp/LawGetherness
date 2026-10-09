@@ -135,6 +135,45 @@ export function reconcile(r) {
   return stance === r.stance ? r : { ...r, stance, adjusted: true }
 }
 
+// Finds contradictions worth one re-ask. Returns a short reason, or '' if the answer is consistent.
+// Checks: "not really" with high impact, a protected resident opposing a lawful rule, claiming a
+// habit/job the resident doesn't have, and a quote whose tone contradicts the stance.
+const NEGATED = /(hindi|di|wala|never|not|don't|do not)\b[^.,!?]{0,18}$/i
+function mentions(text, pattern) {
+  for (const m of text.matchAll(new RegExp(pattern.source, 'gi'))) {
+    if (!NEGATED.test(text.slice(0, m.index))) return true   // "hindi ako naninigarilyo" is fine
+  }
+  return false
+}
+const HABIT_CLAIMS = [
+  [/sigarilyo|yosi|manigarilyo|naninigarilyo|mag-?smoke|my cigarette/, /smokes/, 'you do not smoke'],
+  [/\bvape\b|\bvaping\b|mag-?vape/, /vapes/, 'you do not vape'],
+  [/kotse ko|sasakyan ko|my car|parking ko/, /owns a car|drives a private car/, 'you do not own a car'],
+  [/pasada ko|boundary ko|tricycle ko|jeep ko|my tricycle|my jeepney/, /drives a (tricycle|jeepney)/, 'you do not drive a tricycle or jeepney for work'],
+  [/tindahan ko|paninda ko|stall ko|pwesto ko|my store|my stall/, /plastic bags|carinderia/, 'you do not own a store or stall']
+]
+const SUPPORT_TONE = /\b(tama (lang )?'?yan|maganda '?yan|buti nga|go ako|suportado|sang-ayon ako|dapat lang)\b/i
+const OPPOSE_TONE = /\b(hindi ako papayag|ayoko|labag|mali '?yan|hindi tama|tutol ako)\b/i
+
+export function findContradiction(r, persona, brief = '') {
+  if (!r || r.error) return ''
+  if (r.touches_me === 'not really' && r.impact >= 4) return 'you said it does not really touch you, yet rated impact ' + r.impact
+  const lawful = /ordinary, lawful regulation/.test(brief)
+  const { protects } = relevantDetails(persona.details, brief, persona.job)
+  if (lawful && protects.length && r.stance === 'oppose') return `this ordinance protects you (${protects[0]}), yet you oppose it`
+  const said = `${r.quote} ${r.effect}`
+  for (const [claim, has, fact] of HABIT_CLAIMS) {
+    if (mentions(said, claim) && !(persona.details || []).some(d => has.test(d)) && !(has.source.includes('plastic') && /vendor|sari-sari|store/.test(persona.job))) {
+      return `you talked as if you have this, but ${fact}`
+    }
+  }
+  if (!/\bpero\b|\bbut\b/i.test(r.quote)) {
+    if (r.stance === 'oppose' && SUPPORT_TONE.test(r.quote)) return 'your quote sounds supportive but your stance is oppose'
+    if (r.stance === 'support' && OPPOSE_TONE.test(r.quote)) return 'your quote sounds opposed but your stance is support'
+  }
+  return ''
+}
+
 // Small models open most Filipino sentences with an interjection ("Ay,", "Uy,", "Naku,").
 // Strip one leading interjection and stray quote marks so the grid shows varied, clean quotes.
 const INTERJECTION = /^(ay naku|ay nako|naku|nako|ay|uy|hay|hay naku|grabe|ano ba|aba|hala|eh)\b[\s,!.…'’]*/i
@@ -229,7 +268,7 @@ life_impact: English, 2 sentences, max 35 words. What actually changes in my wee
 impact: 1 = barely affects me ... 5 = threatens my livelihood. If it restricts how I earn a living, 4 or 5. If it barely touches me, 1 or 2.
 stance: support, mixed, or oppose. Think like a decent, informed person: read the "Legal and ethical check". If the rule punishes people for who they are, jails people for harmless acts, or is likely unconstitutional, oppose it even if it does not touch me. Support rules that genuinely protect health, safety, or children. If the ordinance PROTECTS me or my family, support it. If it cuts my income, weigh that honestly.
 comply: "comply" = follow fully; "partial" = only when watched; "evade" = find a way around it.
-reaction: max 30 words of natural Taglish (Tagalog mixed with English), what I would say at a barangay assembly. Make one clear point. Do not start with "Uy" or "Ay naku". No hashtags, no emojis.
+reaction: max 30 words of natural Taglish (Tagalog mixed with English), what I would say at a barangay assembly. Make one clear point. If you are told what neighbors said, respond to one specific concern of theirs (agree or push back) from your own experience. Do not start with "Uy" or "Ay naku". No hashtags, no emojis.
 loophole: English, max 30 words. The most realistic way people would get around THIS ordinance, or a specific gap in its wording. Name the exact word, section, or missing detail.
 what_would_help: English, max 30 words. One concrete change to the ordinance or its rollout that would make it work better for people like me.
 ${RESPECT}
@@ -238,10 +277,10 @@ Answer only in the JSON schema.`
 export const LOOPHOLE_SYSTEM_EXTRA = `
 You are especially sharp about wording: quote the exact vague word or missing definition, and name who could exploit it.`
 
-export function panelUser(p, ordinance, brief) {
+export function panelUser(p, ordinance, brief, neighbors = '') {
   const facts = factLines(relevantDetails(p.details, `${brief || ''}\n${ordinance}`, p.role), 'This ordinance restricts nothing I personally do.')
   return `You are ${p.name}, ${p.role}. ${p.bio}
-${facts}
+${facts}${neighbors ? `\n${neighbors}` : ''}
 Ordinance (text):
 ${ordinance}
 ${brief ? `\nIn plain words:\n${brief}` : ''}`
@@ -255,10 +294,11 @@ Write clear, specific English for the councilor. Refer to sections of the ordina
 If the ordinance leaves key details unstated (penalties, definitions, exemptions, enforcement), say so and propose explicit wording.
 Read the "Legal and ethical check". If the ordinance is likely unconstitutional or punishes people for who they are, the headline must say so plainly, and the first amendment must recommend withdrawing it or replacing it with a lawful alternative; do not polish an unjust rule. Cite only the facts given.
 Keep every field short: headline max 25 words, each list item max 18 words, each amendment field max 30 words.
-headline: one sentence summarizing how residents react.
+analysis: think first, max 50 words, private notes: the 2 biggest problems, who carries the burden (use the Fairness line), and which existing sections to change.
+headline: one sentence summarizing how residents react; it must match the Overall line.
 most_affected: up to 4 items, formatted as "<group>: <the concrete harm THIS ordinance causes them>, avg impact <number from the data>".
 top_loopholes: up to 4 items, the most realistic ways the ordinance would be evaded or misread.
-amendments: up to 3. clause = which section or provision to change; change = the exact new or added wording, ready to paste; reason = which group or loophole it fixes.
+amendments: up to 3. clause = an EXISTING section number from the ordinance, or "New section" if adding one; change = the exact new or added wording, ready to paste; reason = which group or loophole it fixes.
 Answer only in the JSON schema.`
 
 // Used instead of REPORT_SYSTEM when the brief finds the ordinance targets identity or is likely
@@ -269,6 +309,7 @@ This draft ordinance FAILED the legal and ethical check: it likely violates the 
 Your job is NOT to improve, clarify, or enforce it. Never propose definitions, ways to identify people, penalties, or enforcement for what it targets.
 You also get results from a SIMULATION of residents (not a real survey).
 Keep every field short: headline max 25 words, each list item max 20 words, each amendment field max 30 words.
+analysis: think first, max 40 words, private notes: the main legal problem and who is harmed.
 headline: say plainly that the draft is likely unconstitutional or discriminatory and should not be passed; mention how residents reacted.
 most_affected: up to 4 items, "<group>: <how this draft harms them>" (the people targeted, their families, enforcers exposed to lawsuits, the city).
 top_loopholes: up to 4 items, but list LEGAL PROBLEMS instead: the specific rights or laws it violates, citing only the facts given.
@@ -308,6 +349,70 @@ export function summarizeCrowd(crowd, results) {
   return { total: answered.length, stance, comply, touches, byJob, byDetail, quotes }
 }
 
+// ---------- Fairness lens (code only, no model) ----------
+// Does the burden fall hardest on low earners? Earners use their own income, others their household's.
+const BRACKETS = ['below ₱10k', '₱10–25k', '₱25–50k', 'above ₱50k']
+const bracketOf = income => BRACKETS.find(b => income.includes(b)) || 'unknown'
+
+export function fairnessLens(personas, results) {
+  const acc = Object.fromEntries(BRACKETS.map(b => [b, { n: 0, impact: 0, oppose: 0 }]))
+  results.forEach((r, i) => {
+    const b = r && !r.error && personas[i] ? acc[bracketOf(personas[i].income)] : null
+    if (!b) return
+    b.n++; b.impact += r.impact; if (r.stance === 'oppose') b.oppose++
+  })
+  const byIncome = BRACKETS.map(bracket => {
+    const { n, impact, oppose } = acc[bracket]
+    return { bracket, n, avgImpact: n ? +(impact / n).toFixed(1) : null, opposeShare: n ? Math.round(oppose / n * 100) : null }
+  })
+  // Compare the lowest bracket with everyone earning ₱25k+.
+  const low = acc['below ₱10k']
+  const hi = ['₱25–50k', 'above ₱50k'].reduce((m, b) => ({ n: m.n + acc[b].n, impact: m.impact + acc[b].impact, oppose: m.oppose + acc[b].oppose }), { n: 0, impact: 0, oppose: 0 })
+  let flag = null
+  if (low.n >= 3 && hi.n >= 3) {
+    const lo = low.impact / low.n, h = hi.impact / hi.n
+    const pct = x => Math.round(x.oppose / x.n * 100)
+    if (lo - h >= 0.4) flag = `Burden falls hardest on households below ₱10k: avg impact ${lo.toFixed(1)} vs ${h.toFixed(1)} for ₱25k and up (${pct(low)}% vs ${pct(hi)}% oppose).`
+    else if (h - lo >= 0.4) flag = `Burden falls more on households earning ₱25k and up: avg impact ${h.toFixed(1)} vs ${lo.toFixed(1)} below ₱10k.`
+  }
+  return { byIncome, flag }
+}
+
+// ---------- Panel: what the neighbors said ----------
+// Compact digest of the finished crowd so panelists react to real concerns, not a vacuum.
+export function neighborsDigest(personas, results) {
+  const ok = results.map((r, i) => (r && !r.error ? { r, p: personas[i] } : null)).filter(Boolean)
+  if (ok.length < 10) return ''
+  const pct = s => Math.round(ok.filter(x => x.r.stance === s).length / ok.length * 100)
+  const groups = {}
+  for (const { r, p } of ok) {
+    const g = (groups[p.group || p.job] ??= { n: 0, impact: 0, oppose: 0 })
+    g.n++; g.impact += r.impact; if (r.stance === 'oppose') g.oppose++
+  }
+  const hardest = Object.entries(groups).filter(([, g]) => g.n >= 2)
+    .sort((a, b) => b[1].impact / b[1].n - a[1].impact / a[1].n).slice(0, 2)
+    .map(([k, g]) => `${k} (${g.oppose} of ${g.n} oppose, avg impact ${(g.impact / g.n).toFixed(1)})`)
+  const voices = ok.filter(x => x.r.touches_me !== 'not really' || x.r.stance === 'oppose')
+    .sort((a, b) => b.r.impact - a.r.impact).slice(0, 3)
+    .map(x => `${x.p.job}: "${x.r.quote}"`)
+  return `What your neighbors said (simulated): ${pct('support')}% support, ${pct('mixed')}% mixed, ${pct('oppose')}% oppose of ${ok.length}.
+Hardest hit: ${hardest.join('; ') || 'no clear group'}.
+Voices: ${voices.join(' | ')}`
+}
+
+// ---------- Report: amendments must point at real sections ----------
+// Returns the clauses that cite a Section number the ordinance doesn't have ([] if all fine,
+// or if the ordinance has no numbered sections to check against).
+export function missingSections(ordinance, amendments = []) {
+  const have = new Set([...ordinance.matchAll(/Section\s+(\d+)/gi)].map(m => m[1]))
+  if (!have.size) return []
+  return amendments.map(a => a.clause || '').filter(c => {
+    if (/new section|add(ed)? (a )?section|entire ordinance|whole ordinance|withdraw|alternative/i.test(c)) return false
+    const cited = [...c.matchAll(/Section\s+(\d+)/gi)].map(m => m[1])
+    return cited.some(n => !have.has(n))
+  })
+}
+
 // "- group (n=..): s/m/o, avg impact x" lines, most affected first.
 function groupLines(map, limit, minN = 1) {
   return Object.entries(map)
@@ -330,7 +435,15 @@ export function legalCheckText(b) {
 - Legality: ${b.legality}${b.known_facts?.length ? `\nRelevant facts:\n${b.known_facts.slice(0, 2).map(f => '- ' + clip(f, 220)).join('\n')}` : ''}`
 }
 
-export function reportUser(ordinance, summary, panelAnswers, legalCheck = '') {
+// States the actual majority so the headline can't contradict the numbers (it once said "Residents Oppose" at 55% support).
+function overallLine({ stance, total }) {
+  if (!total) return 'no responses'
+  const [top, n] = Object.entries(stance).sort((a, b) => b[1] - a[1])[0]
+  const pct = Math.round(n / total * 100)
+  return pct > 50 ? `most residents ${top.toUpperCase()} (${pct}%)` : `no majority; largest group ${top} (${pct}%)`
+}
+
+export function reportUser(ordinance, summary, panelAnswers, legalCheck = '', fairnessFlag = '') {
   const jobs = groupLines(summary.byJob, 5)
   const details = groupLines(summary.byDetail, 4, 3)
   const panel = panelAnswers
@@ -342,8 +455,10 @@ ${ordinance}
 ${legalCheck ? `\n${legalCheck}\n` : ''}
 Simulated crowd: ${summary.total} residents
 Stance: ${summary.stance.support} support, ${summary.stance.mixed} mixed, ${summary.stance.oppose} oppose
+Overall: ${overallLine(summary)}
 Compliance: ${summary.comply.comply} comply, ${summary.comply.partial} partial, ${summary.comply.evade} evade
 Touched: ${summary.touches.directly} directly, ${summary.touches.indirectly} indirectly, ${summary.touches['not really']} not really
+Fairness: ${fairnessFlag || 'no strong income pattern'}
 Most affected occupation groups:
 ${jobs}
 Most affected by life situation:
@@ -353,5 +468,5 @@ Panel:
 ${panel}
 
 Sample quotes:
-${summary.quotes.slice(0, 3).map(q => '- ' + q).join('\n')}`
+${summary.quotes.slice(0, 2).map(q => '- ' + q).join('\n')}`
 }
