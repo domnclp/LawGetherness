@@ -114,28 +114,31 @@ export default function App() {
                   <select id="sample" value={sample} disabled={running} onChange={e => { setSample(e.target.value); const nextSample = SAMPLES.find(item => item.id === e.target.value); if (nextSample) setDraft(nextSample.text) }}><option value="custom">Your own ordinance</option>{SAMPLES.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select>
                   {selectedSample && <p className="sample-source"><a href={selectedSample.source} target="_blank" rel="noreferrer" title="Plain-language summary, not the full legal text.">Source ↗</a></p>}
                 </div>
-                <div className="population-heading"><span className="field-label">Community size</span><details className="population-method"><summary>{CROWD_MIX.label}</summary><p>{CROWD_MIX.source}</p></details></div>
-                <div className="size-run-row">
-                  <div className="size-options" role="group" aria-label="Number of simulated residents">{[50, 100, 200].map(n => <button key={n} disabled={running} className={size === n ? 'chosen' : ''} aria-label={`${n} residents`} aria-pressed={size === n} onClick={() => setSize(n)}><strong>{n}</strong></button>)}</div>
-                </div>
-                <button className="primary-button compact-run" aria-label="Run simulation" disabled={!draft.trim() || running} onClick={run}>{running ? `${done}/${residents.length}` : 'Run simulation'}<Icon name="arrow" size={16} /></button>
-                {running && phase !== 'report' && <button className="stop-button" onClick={() => { cancelled.current = true; controller.current?.abort() }}>Stop simulation</button>}
               </div>
               <div className="draft-editor">
                 <div className="editor-heading"><label className="field-label" htmlFor="ordinance">Draft</label></div>
                 <textarea id="ordinance" value={draft} disabled={running} onChange={e => { setDraft(e.target.value); setSample('custom') }} placeholder="Paste your draft ordinance here…" />
-                <div className="editor-footer"><span>Editable summary</span></div>
+              </div>
+              <div className="draft-below-controls">
+                <div className="population-heading"><span className="field-label">Community size</span><details className="population-method"><summary>{CROWD_MIX.label}</summary><p>{CROWD_MIX.source}</p></details></div>
+                <div className="size-run-row"><div className="size-options" role="group" aria-label="Number of simulated residents">{[50, 100, 200].map(n => <button key={n} disabled={running} className={size === n ? 'chosen' : ''} aria-label={`${n} residents`} aria-pressed={size === n} onClick={() => setSize(n)}><strong>{n}</strong></button>)}</div><button className="primary-button compact-run" aria-label="Run simulation" disabled={!draft.trim() || running} onClick={run}>{running ? `${done}/${residents.length}` : 'Run simulation'}<Icon name="arrow" size={16} /></button></div>
+                {running && phase !== 'report' && <button className="stop-button" onClick={() => { cancelled.current = true; controller.current?.abort() }}>Stop simulation</button>}
               </div>
             </div>
             {error && <div className="error-message" role="alert">{error}</div>}
           </section>
           <section className="card community-card" id="community">
-            <div className="card-heading"><div><h2>Community perspectives</h2></div></div>
+            <div className="community-overview">
+              <div className="community-perspective-panel">
+                <div className="card-heading"><div><h2>Community perspectives</h2></div></div>
+                <div className="stat-grid">{stances.map((s, i) => <button key={s} className={`stat ${s} ${filter === s ? 'selected-stat' : ''}`} onClick={() => setFilter(filter === s ? 'all' : s)} aria-pressed={filter === s}><span><i />{s}</span><strong>{percentages[i]}<small>%</small></strong><span>{counts[i]}</span></button>)}</div>
+                <div className="stance-bar" aria-label="Distribution of simulated reactions">{stances.map((s, i) => <span key={s} className={s} style={{ flex: counts[i] || 0.001 }} />)}</div>
+              </div>
+              <aside className="community-response-box"><span className="field-label">Response summary</span><p>Across {residents.length} residents: {counts[0]} support ({percentages[0]}%), {counts[1]} are mixed ({percentages[1]}%), and {counts[2]} oppose ({percentages[2]}%). Support signals a perceived benefit; mixed responses point to trade-offs; opposition highlights concerns or burdens.</p></aside>
+            </div>
             {mode === 'live' && <div className="results-caption" role="status"><span>{`${completed.length} valid reactions · ${done - completed.length} unavailable`}</span><strong>{residents.length} residents</strong></div>}
             {mode === 'live' && draft !== runDraft && <p className="draft-changed">Draft edited. Run again to update these results.</p>}
             <ResponseContext mode={mode} draft={draft} runDraft={runDraft} person={person} reaction={reaction} />
-            <div className="stat-grid">{stances.map((s, i) => <button key={s} className={`stat ${s} ${filter === s ? 'selected-stat' : ''}`} onClick={() => setFilter(filter === s ? 'all' : s)} aria-pressed={filter === s}><span><i />{s}</span><strong>{percentages[i]}<small>%</small></strong><span>{counts[i]}</span></button>)}</div>
-            <div className="stance-bar" aria-label="Distribution of simulated reactions">{stances.map((s, i) => <span key={s} className={s} style={{ flex: counts[i] || 0.001 }} />)}</div>
             {running && <progress aria-label="Simulation progress" max={residents.length} value={done} />}
             <div className="grid-toolbar"><h3>Resident map <span>{visible.length}</span></h3><div><select aria-label="Filter by occupation group" value={job} onChange={e => setJob(e.target.value)}><option value="all">All occupation groups</option>{JOBS.map(group => <option key={group} value={group}>{group}</option>)}</select><select aria-label="Filter by sector" value={sector} onChange={e => setSector(e.target.value)}><option value="all">All sectors</option>{sectors.map(name => <option key={name}>{name}</option>)}</select></div></div>
             <div className="map-stage">
