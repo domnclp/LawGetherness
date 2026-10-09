@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import App from './App.jsx'
 import './site.css'
 
-const isWelcome = () => ['', '#welcome', '#about', '#how-it-works', '#local-ai'].includes(window.location.hash)
+const isWelcome = () => ['', '#welcome', '#about', '#how-it-works', '#local-ai', '#about-us'].includes(window.location.hash)
 
 export default function Site() {
   const [welcome, setWelcome] = useState(isWelcome)
@@ -14,6 +14,7 @@ export default function Site() {
   useEffect(() => {
     document.title = welcome ? 'LawGetherness — Every law touches a life' : 'LawGetherness — Ordinance simulator'
     if (!welcome) document.getElementById('workspace')?.focus({ preventScroll: true })
+    if (welcome && window.location.hash === '#about-us') requestAnimationFrame(() => document.getElementById('about-us')?.scrollIntoView())
   }, [welcome])
 
   if (!welcome) return <App />
@@ -73,6 +74,13 @@ export default function Site() {
         <div className="landing-story-content"><p>Better questions start<br />with a little <em>foresight.</em></p></div>
       </div>
       <div className="landing-closing"><a className="landing-cta" href="#workspace">Test a law <span aria-hidden="true">↗</span></a></div>
+    </section>
+    <section className="landing-about-us landing-section" id="about-us" aria-labelledby="about-us-title">
+      <p className="landing-kicker">ABOUT US</p>
+      <div className="landing-editorial-grid">
+        <h2 id="about-us-title">Better decisions begin<br />with <em>more voices.</em></h2>
+        <div className="landing-prose"><p>LawGetherness is a local AI workspace for thinking through how an ordinance might affect everyday life.</p><p>This page is a starting point for our story, team, and community work. More about the people behind the project will be added here.</p><a className="landing-text-link" href="#workspace">Test a law <span aria-hidden="true">↗</span></a></div>
+      </div>
     </section>
   </div>
 }
