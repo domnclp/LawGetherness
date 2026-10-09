@@ -1,0 +1,17 @@
+{
+ "runs": {
+  "school-zone": {
+   "version": "2026-10-10.1",
+   "model": "gemma3:4b",
+   "size": 200,
+   "created": "2026-10-09T21:45:14.530Z",
+   "split": {
+    "support": 156,
+    "mixed": 32,
+    "oppose": 12
+   },
+   "gray": 0,
+   "verdict": "revise"
+  }
+ }
+}
