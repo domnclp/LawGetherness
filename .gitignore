@@ -24,3 +24,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Private planning docs (kept local, not in the public repo)
+ANGEL.md
+hackathon_guide_and_rules.md
+Ordinance Wind Tunnel*.md
