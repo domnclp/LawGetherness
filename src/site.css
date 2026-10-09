@@ -288,6 +288,43 @@ body:has(.app-shell) { padding:0; background:#f2ede2; }
 .response-context summary:focus-visible { outline:2px solid #798653; outline-offset:4px; }
 .response-context h3 { font-size:14px; }
 .response-context pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:240px; overflow:auto; background:#fbf8f1; padding:16px; font:13px/1.8 'Segoe UI', Arial, sans-serif; }
+/* Draft first, then a full-width community view at every viewport size. */
+.app-shell .workspace-grid { display:flex; flex-direction:column; gap:48px; }
+.app-shell .workspace-grid>.draft-card, .app-shell .workspace-grid>.community-card { width:100%; max-width:none; min-width:0; }
+.app-shell .draft-card .card-heading h2 { max-width:none; }
+.app-shell .draft-card textarea { width:100%; }
+.app-shell .draft-card .primary-button { max-width:420px; }
+.app-shell .draft-card .button-note { max-width:420px; }
+.app-shell .draft-card .size-options { max-width:420px; }
+/* One quiet drafting surface, echoing the landing page's editorial composition. */
+.app-shell .page-content { padding-top:20px; padding-bottom:32px; }
+.app-shell .workspace-grid>.draft-card { padding:0; background:transparent; border-radius:0; }
+.app-shell .workspace-grid>.draft-card { max-width:760px; margin-inline:auto; text-align:center; }
+.app-shell .workspace-grid>.draft-card .field-label,
+.app-shell .workspace-grid>.draft-card .editor-heading,
+.app-shell .workspace-grid>.draft-card .editor-footer,
+.app-shell .workspace-grid>.draft-card .population-heading,
+.app-shell .workspace-grid>.draft-card .button-note { text-align:left; }
+.app-shell .workspace-grid>.draft-card .sample-source { text-align:left; }
+.app-shell .workspace-grid>.draft-card .primary-button { margin-inline:auto; }
+.app-shell .draft-introduction { margin-bottom:12px; }
+.app-shell .draft-introduction h1 { font:400 clamp(34px, 4vw, 48px)/1.1 Georgia, 'Times New Roman', serif; letter-spacing:-1.2px; color:#373f2c; margin:0; }
+.app-shell .draft-introduction em { font-weight:400; }
+.app-shell .draft-introduction p { display:none; }
+.app-shell .draft-card>.field-label, .app-shell .editor-heading .field-label { font:400 14px/1.6 'Segoe UI', Arial, sans-serif; letter-spacing:0; }
+.app-shell .draft-card>select { background:#e8e5d9; border:0; border-radius:2px; padding:14px 16px; }
+.app-shell .draft-card>select { width:min(100%, 680px); }
+.app-shell .draft-card .sample-source { margin:6px 0 0; }
+.app-shell .draft-card .editor-heading { margin-top:12px; }
+.app-shell .draft-card textarea { background:#fbf8f1; border:0; border-radius:2px; height:170px; min-height:150px; }
+.app-shell .draft-card .population-heading { margin-top:4px; padding-top:4px; }
+.app-shell .population-heading>div>p { display:none; }
+.app-shell .population-heading .field-label { font:400 14px/1.6 'Segoe UI', Arial, sans-serif; letter-spacing:0; text-transform:lowercase; }
+.app-shell .population-heading .field-label::first-letter { text-transform:uppercase; }
+.app-shell .draft-card .population-method { margin-top:6px; }
+.app-shell .draft-card .size-options { margin:5px 0 10px; }
+.app-shell .draft-card .editor-footer { padding:5px 0; }
+.app-shell .draft-card .primary-button { margin-top:0; }
 /* Spacing and soft surfaces provide separation without decorative rules. */
 .app-shell .page-heading, .app-shell .card-heading, .app-shell .population-heading,
 .app-shell .stat-grid, .app-shell .page-footer, .app-shell .topbar,
@@ -309,6 +346,7 @@ body:has(.app-shell) { padding:0; background:#f2ede2; }
   .landing-ai { padding-top:120px; }
 }
 .sample-source { display:grid; gap:5px; margin:12px 0 0; font:12px/1.7 'Segoe UI', Arial, sans-serif; color:#645d4f; }
+.map-source-note { font:12px/1.65 'Segoe UI', Arial, sans-serif; color:#645d4f; margin:8px 0 14px; max-width:70ch; }
 .sample-source a { color:#48561a; text-decoration:underline; text-underline-offset:3px; width:fit-content; }
 .population-method { margin-top:12px; font:13px/1.7 'Segoe UI', Arial, sans-serif; color:#645d4f; }
 .population-method summary { cursor:pointer; color:#48561a; }
@@ -326,22 +364,20 @@ body:has(.app-shell) { padding:0; background:#f2ede2; }
 .app-shell .sector-tile {
   --sector-top:#e8eddf;
   --sector-edge:#819970;
-  min-height:260px;
-  padding:20px 18px 26px;
+  min-height:165px;
+  padding:10px 9px 13px;
   border-radius:18px;
   background:var(--sector-top);
   box-shadow:0 9px 0 var(--sector-edge), 0 18px 24px #37452e25;
-  transform:rotateX(9deg) rotateZ(-2deg);
-  transform-style:preserve-3d;
-  transition:transform .4s ease, box-shadow .4s ease;
+  transition:transform .35s ease, box-shadow .35s ease;
 }
 .app-shell .sector-tile:before, .app-shell .sector-tile:after { display:none; }
-.app-shell .sector-tile:hover, .app-shell .sector-tile:focus-within { transform:rotateX(0) rotateZ(0) translateY(-7px); box-shadow:0 12px 0 var(--sector-edge), 0 25px 28px #37452e30; z-index:5; }
-.app-shell .sector-tile h4 { color:#38452f; font:600 14px/1.4 'Segoe UI', Arial, sans-serif; text-align:center; }
-.app-shell .sector-tile .purok-count { color:#5b684e; text-align:center; margin-bottom:12px; }
-.sector-scenery { display:block; width:110px; height:65px; margin:0 auto 6px; color:#63794f; }
-.app-shell .sector-tile .purok-residents { position:relative; inset:auto; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:6px 3px; transform:none; }
-.app-shell .sector-tile .map-resident { min-height:40px; height:40px; }
+.app-shell .sector-tile:hover, .app-shell .sector-tile:focus-within { transform:translateY(-5px); box-shadow:0 12px 0 var(--sector-edge), 0 22px 26px #37452e30; z-index:5; }
+.app-shell .sector-tile h4 { color:#38452f; font:600 11px/1.25 'Segoe UI', Arial, sans-serif; text-align:center; }
+.app-shell .sector-tile .purok-count { color:#5b684e; text-align:center; margin-bottom:4px; font-size:10px; }
+.sector-scenery { display:block; width:56px; height:32px; margin:0 auto 1px; color:#63794f; }
+.app-shell .sector-tile .purok-residents { position:relative; inset:auto; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:3px 2px; transform:none; }
+.app-shell .sector-tile .map-resident { min-height:24px; height:24px; }
 .app-shell .sector-tile .map-person { filter:drop-shadow(3px 4px 1px #3c4d3325); }
 .app-shell .sector-tile .person-body { box-shadow:inset -5px 0 #0002; }
 .app-shell .sector-tile .group-popover { bottom:-4px; }
@@ -358,7 +394,7 @@ body:has(.app-shell) { padding:0; background:#f2ede2; }
 }
 @media (prefers-reduced-motion:reduce) {
   .app-shell .sector-tile { transition:none; }
-  .app-shell .sector-tile:hover, .app-shell .sector-tile:focus-within { transform:rotateX(9deg) rotateZ(-2deg); }
+  .app-shell .sector-tile:hover, .app-shell .sector-tile:focus-within { transform:none; }
 }
 @keyframes workspace-arrive {
   from { opacity:0; transform:translateY(8px); }
