@@ -8,7 +8,7 @@ import { PANEL } from './panel.js'
 import { crowdSchema, panelSchema, reportSchema } from './schemas.js'
 import {
   CROWD_SYSTEM, crowdUser, PANEL_SYSTEM, LOOPHOLE_SYSTEM_EXTRA, panelUser,
-  REPORT_SYSTEM, reportUser, summarizeCrowd
+  REPORT_SYSTEM, reportUser, summarizeCrowd, cleanQuote
 } from './prompts.js'
 
 // 200 seeded residents (same every run). Smaller runs use the first N.
@@ -23,8 +23,10 @@ export const PANEL_PERSONAS = PANEL
 // Resolves to the array of reactions in persona order.
 export async function runCrowd(ordinanceText, size, onResult, signal) {
   const personas = PERSONAS_200.slice(0, size)
-  const tasks = personas.map(p => s =>
-    chat({ system: CROWD_SYSTEM, user: crowdUser(p, ordinanceText), schema: crowdSchema, signal: s }))
+  const tasks = personas.map(p => async s => {
+    const r = await chat({ system: CROWD_SYSTEM, user: crowdUser(p, ordinanceText), schema: crowdSchema, signal: s })
+    return { ...r, quote: cleanQuote(r.quote) }
+  })
   const results = await runPool(tasks, {
     concurrency: 2,
     signal,
