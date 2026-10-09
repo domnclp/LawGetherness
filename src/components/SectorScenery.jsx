@@ -20,13 +20,14 @@ const scenes = {
   'Health & professional': <>
     <rect x="24" y="18" width="34" height="38" rx="5" fill="#a2bdb1" /><rect x="30" y="11" width="22" height="9" rx="2" fill="#718e80" /><path d="M35 37h12m-6-6v12" stroke="#f3efe2" strokeWidth="4" />
     <g transform="translate(90 27) rotate(-20 20 10)"><rect width="42" height="19" rx="9" fill="#eee4ce" /><path d="M21 0h12a9 9 0 0 1 0 19H21Z" fill="#b98f7e" /></g>
-    <rect x="170" y="13" width="62" height="39" rx="4" fill="#8daba0" /><rect x="176" y="19" width="50" height="24" rx="2" fill="#526d61" /><path d="M180 33h9l5-8 6 14 5-9h16" stroke="#dcebcf" fill="none" strokeWidth="2" /><path d="M201 52v7m-14 0h28" stroke="#708c7e" strokeWidth="3" />
-    <path d="M258 23q-10 0-10 10t10 10q10 0 10-10V15m-10 28v10q-16 8-16-5" fill="none" stroke="#6e8979" strokeWidth="3" />
+    <rect x="170" y="15" width="48" height="42" rx="3" fill="#d9e3d1" stroke="#8da58f" /><path d="M180 15v42m28-42v42" stroke="#b1c4ad" />
+    {[27, 44].map(y => <g key={y}><rect x="185" y={y} width="17" height="7" rx="3.5" fill="#a98b7b" /><path d={`M193 ${y}v7`} stroke="#f1e8d5" /></g>)}
+    <rect x="245" y="30" width="31" height="27" rx="4" fill="#b6c6aa" /><path d="M250 23h21v8h-21Z" fill="#7e9680" /><path d="M252 43h16m-8-8v16" stroke="#f4efdf" strokeWidth="3" />
   </>,
-  'BPO & administration': <>{[22, 100, 195].map((x, i) => <g key={x} transform={`translate(${x} ${[12, 1, 8][i]})`}>
-    <path d={`M0 0h52v${[45, 56, 49][i]}H0Z`} fill="#b7c1c9" /><path d={`m52 0 14 7v${[38, 49, 42][i]}H52Z`} fill="#83949f" />
+  'BPO & administration': <>{[5, 65, 125, 185, 245].map((x, i) => <g key={x} transform={`translate(${x} ${[12, 1, 8, 1, 12][i]}) scale(.75 1)`}>
+    <path d={`M0 0h52v${[45, 56, 49, 56, 45][i]}H0Z`} fill="#b7c1c9" /><path d={`m52 0 14 7v${[38, 49, 42, 49, 38][i]}H52Z`} fill="#83949f" />
     {[9, 21, 33].map(y => <path key={y} d={`M7 ${y}h9m6 0h9m6 0h9`} stroke="#e8e7cf" strokeWidth="5" />)}
-    <path d={`M21 ${[34, 45, 38][i]}h12v11H21Z`} fill="#657c88" />
+    <path d={`M21 ${[34, 45, 38, 45, 34][i]}h12v11H21Z`} fill="#657c88" />
   </g>)}</>,
   'Food service': <>
     <rect x="16" y="29" width="268" height="28" rx="2" fill="#baa98e" /><path d="M12 27h276v5H12Z" fill="#e3d8c2" />
@@ -42,22 +43,30 @@ const scenes = {
     <path d="M37 15h38l10 12v13H28V27Z" fill="#afbd9b" /><path d="M41 18h29l6 10H35Z" fill="#648076" /><circle cx="39" cy="40" r="5" fill="#56675b" /><circle cx="73" cy="40" r="5" fill="#56675b" />
     <path d="M188 15h39v25h-39Z" fill="#c5ae8a" /><path d="M227 24h16l10 10v6h-26Z" fill="#96ac9d" /><path d="M232 27h9l6 7h-15Z" fill="#647c71" /><circle cx="199" cy="41" r="5" fill="#56675b" /><circle cx="242" cy="41" r="5" fill="#56675b" />
   </>,
-  Construction: <>{[24, 122, 218].map((x, i) => <g key={x} transform={`translate(${x} 5)`}>
+  Homemakers: <>{[24, 122, 218].map((x, i) => <g key={x} transform={`translate(${x} 5)`}>
     <path d="M0 25 25 7l25 18v27H0Z" fill={i === 1 ? '#d6c8ae' : '#c4bfa9'} /><path d="m50 25 9-5v26l-9 6Z" fill="#a59d82" /><path d="M-5 25 25 2l30 23-5 4L25 9 0 29Z" fill="#9d8970" />
     <path d="M9 32h11v10H9m18-10h13v20H27" fill="#849785" />
-    {i === 1 && <path d="M-8 9v45m65-45v45M-8 16h65M-8 37h65m-65-21 65 21" fill="none" stroke="#baa477" strokeWidth="2" />}
   </g>)}</>,
   Students: <>
-    <path d="M22 47h61v9H22Z" fill="#9b8f9e" /><path d="M26 37h61v9H26Z" fill="#afba9a" /><path d="M20 27h61v9H20Z" fill="#c4a58d" /><path d="M25 30h51m-45 10h51m-55 10h51" stroke="#eee6d3" strokeWidth="4" />
-    <path d="M115 33q16-9 32 0 16-9 32 0v23q-16-8-32 0-16-8-32 0Z" fill="#ece6d3" stroke="#aaab91" /><path d="M147 34v21m-26-16h18m16 0h18m-52 6h18m16 0h18" stroke="#b1b59f" fill="none" />
-    <path d="m231 26-15 8 7 11 7-4v16h27V41l7 4 7-11-16-8-12 7Z" fill="#77877d" /><path d="m231 27 12 8 12-8m-12 8v21" stroke="#d7c190" strokeWidth="2" fill="none" /><path d="m218 13 25-10 25 10-25 10Z" fill="#586e63" /><path d="M230 20v7q13 7 26 0v-7m12-7v17" fill="#77877d" stroke="#586e63" />
+    <path d="M27 23h246v34H27Z" fill="#c9cbb7" /><path d="M120 13h60v44h-60Z" fill="#e2d6b9" /><path d="m112 14 38-13 38 13Z" fill="#859583" />
+    <circle cx="150" cy="23" r="6" fill="#f1ead7" /><path d="M150 19v4h4" stroke="#718471" fill="none" /><path d="M139 39h22v18h-22Z" fill="#7d927e" />
+    {[39, 63, 87, 190, 214, 238].map(x => <path key={x} d={`M${x} 30h13v9h-13m0 5h13v9h-13Z`} fill="#97b5a5" />)}
+    <path d="M24 20h93m66 0h93" stroke="#9d8b70" strokeWidth="5" />
   </>,
-  Homemakers: <>
-    <path d="M15 29 42 8l27 21v28H15Z" fill="#e1d4ba" /><path d="M10 29 42 3l32 26-5 4L42 12 15 33Z" fill="#a48d70" /><path d="M26 37h11v11H26m18-11h15v20H44" fill="#90a18b" />
-    <path d="m111 5-7 37" stroke="#a39270" strokeWidth="3" /><path d="m96 39 16 3 7 15H86Z" fill="#baa576" /><path d="m98 43-5 12m10-11-1 12m6-11 4 11" stroke="#e6d5aa" />
-    <path d="M153 33h39l-5 24h-29Z" fill="#99b3a1" /><path d="M157 33q15-27 31 0" fill="none" stroke="#708e7c" strokeWidth="2" /><ellipse cx="172" cy="34" rx="17" ry="3" fill="#c9d8c7" />
-    <path d="M231 24h26v33h-26Z" fill="#b5c8b4" /><path d="M236 14h16v10h-16m2-16h22v7h-22Z" fill="#829d88" /><path d="M260 8h10v5h-10" fill="#a2b8a0" /><path d="M238 39h12m-6-6v12" stroke="#eee9d7" strokeWidth="2" />
+  Construction: <>
+    {[0, 1, 2].map(row => <g key={row}>{[0, 1, 2, 3].map(col => <path key={col} d={`M${20 + col * 18 + row % 2 * 7} ${51 - row * 10}h16v8h-16Z`} fill={row % 2 ? '#c5a58a' : '#b7957a'} stroke="#8c7864" strokeWidth=".6" />)}</g>)}
+    <path d="m114 52 24-39h37l15 39Z" fill="#c4b794" /><path d="m133 22 23 5m-29 7 40 3" stroke="#e1d3b4" />
+    {[0, 1, 2].map(i => <path key={i} d={`M210 ${49 - i * 9}h72v7h-72Z`} fill="#bfa078" stroke="#927a5d" />)}
+    <path d="M190 12h85m-85 5h85" stroke="#879588" strokeWidth="3" />
   </>,
+  Government: <>
+    <path d="M142 9h16v43h-16Z" fill="#a99568" /><path d="M120 53h60v5h-60Z" fill="#8d805e" /><path d="M102 18h96" stroke="#8d805e" strokeWidth="4" /><circle cx="150" cy="12" r="5" fill="#cbbb8d" />
+    {[103, 197].map(x => <g key={x}><path d={`m${x} 18-22 26h44Z`} fill="none" stroke="#a99568" strokeWidth="1.5" /><path d={`M${x - 24} 44h48q-5 14-24 14t-24-14Z`} fill="#b9ab7e" /><path d={`M${x - 18} 47h36`} stroke="#e2d7ae" strokeWidth="2" /></g>)}
+  </>,
+  'Seniors & retirees': <>{[35, 130, 225].map(x => <g key={x} transform={`translate(${x} 7)`}>
+    <rect x="0" y="1" width="35" height="27" rx="5" fill="#b3ad8c" /><path d="M4 7h27m-27 8h27m-27 8h27" stroke="#ded5b8" strokeWidth="2" />
+    <path d="M-3 31h41v8H-3Z" fill="#92896b" /><path d="M2 39v12m30-12v12M-5 21v18m43-18v18" stroke="#7d7f65" strokeWidth="3" />
+  </g>)}</>,
 }
 
 const surfaces = {
@@ -68,6 +77,8 @@ const surfaces = {
   Construction: ['#f0ebdf', '#dfd6bd', '#b7a47e'],
   Students: ['#eeeae9', '#e0dce2', '#b5abbd'],
   Homemakers: ['#f0eee2', '#e3dec9', '#b9b390'],
+  Government: ['#efeee2', '#dfdfcc', '#b5b593'],
+  'Seniors & retirees': ['#f0eadb', '#e0d9c2', '#b5ad8d'],
 }
 
 function SectorLandscape({ sector }) {
