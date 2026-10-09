@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { runCrowd, runPanel, runReport, runSummary, getQuickSummary, getSummaryHighlights, getRunSource, prefetchBrief, readOrdinanceFile, prepareDraft, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
+import { runCrowd, runPanel, runReport, runSummary, getQuickSummary, getSummaryHighlights, getRunSource, prefetchBrief, readOrdinanceFile, prepareDraft, printCouncilMemo, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
 import PanelCards from './components/PanelCards.jsx'
 import Report from './components/Report.jsx'
 import ResponseContext from './components/ResponseContext.jsx'
@@ -224,7 +224,7 @@ export default function App() {
         </div>
         {mode === 'live' && previous && <p className="draft-changed">Previous {previous.count}-resident run: {previous.percentages[0]}% support · {previous.percentages[1]}% mixed · {previous.percentages[2]}% oppose. Compare runs with the same community size.</p>}
         {mode === 'live' && (phase === 'panel' || phase === 'report' || Object.keys(panelResults).length > 0 || Object.keys(panelText).length > 0) && <PanelCards personas={PANEL_PERSONAS} results={panelResults} text={panelText} running={phase === 'panel'} />}
-        {mode === 'live' && (report || phase === 'report') && <Report report={report} loading={phase === 'report'} stale={draft !== runDraft} disabled={running} onApply={amendment => { setDraft(current => `${current}\n\nPROPOSED AMENDMENT — ${amendment.clause}\n${amendment.change}`); setSample('custom'); document.getElementById('ordinance')?.focus() }} />}
+        {mode === 'live' && (report || phase === 'report') && <Report report={report} loading={phase === 'report'} stale={draft !== runDraft} disabled={running} onExport={() => printCouncilMemo({ draft: runDraft, residents, results, report, togetherness, source: runSource })} onApply={amendment => { setDraft(current => `${current}\n\nPROPOSED AMENDMENT — ${amendment.clause}\n${amendment.change}`); setSample('custom'); document.getElementById('ordinance')?.focus() }} />}
         <footer className="page-footer"><span><Icon name="shield" size={16} /> Simulated reactions from a small local model, not a real survey.</span><span>Built for more thoughtful local policy.</span></footer>
       </div>
     </main>

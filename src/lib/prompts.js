@@ -347,7 +347,20 @@ const SERIOUS = /fine|income|lose|lost|sales|livelihood|harass|arrest|jail|suspi
 const WRONGDOER = /refus|discriminat|turn(ing)? away|deny|denying|reject|litter|throw|dump|smok|vap/i
 const othersBurden = s => !isNone(s) && SERIOUS.test(s) && !WRONGDOER.test(s)
 export const isNone = s => !s || /^(no ?one|nobody|none|nothing|n\/a|wala)\b/i.test(String(s).trim())
-const side = s => tidyEnd(String(s || '').trim().replace(/^(it )?(helps|hurts|costs)\s*:?\s*/i, '').replace(/[.\s]+$/, ''), 70)
+// A side cut by the schema cap ("protects children from smoke and improves") goes back to its last
+// whole clause instead of ending on "…" mid-phrase, since it sits in the middle of the reasoning line.
+const CLAUSE_BREAK = /,\s|;\s|\s(and|which|by|to|so|while|but|because|making)\s/gi
+function side(s) {
+  const t = String(s || '').trim().replace(/^(it )?(helps|hurts|costs)\s*:?\s*/i, '').replace(/[.\s]+$/, '')
+  if (t.length < 67) return t
+  // Not at "to" after a word that needs it ("are trying to", "expenses due to"): that leaves a fragment.
+  const breaks = [...t.matchAll(CLAUSE_BREAK)]
+    .filter(m => m.index >= 20 && !(/^\s?to\s/i.test(m[0]) && /\b(try|trying|tries|want|wants|aims?|need|needs|has|have|had|able|going|due|order|plans?|seeks?|forced|required)$/i.test(t.slice(0, m.index))))
+    .map(m => m.index)
+  let out = breaks.length ? t.slice(0, breaks[breaks.length - 1]).replace(/[,;:\s]+$/, '') : tidyEnd(t, 70)
+  while (DANGLING.test(out)) out = out.replace(DANGLING, '')
+  return out
+}
 export function composeWhy(helps, hurts) {
   const h = side(helps), c = side(hurts), cap = s => s.charAt(0).toUpperCase() + s.slice(1)
   const low = s => /^I\b/.test(s) ? s : s.replace(/^./, x => x.toLowerCase())

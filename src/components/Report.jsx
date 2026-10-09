@@ -1,6 +1,6 @@
-export default function Report({ report, loading, stale, disabled, onApply }) {
+export default function Report({ report, loading, stale, disabled, onApply, onExport }) {
   return <section id="insights" className="report-section" aria-labelledby="report-title" aria-busy={loading}>
-    <div className="analysis-heading"><div><h2 id="report-title">Review your draft</h2><p>Suggested changes based on this simulation.</p></div></div>
+    <div className="analysis-heading"><div><h2 id="report-title">Review your draft</h2><p>Suggested changes based on this simulation.</p></div>{onExport && !loading && report && <button type="button" className="memo-export" onClick={onExport} title="One-page brief for the council: headline, who is hurt, loopholes, amendments. Print or save as PDF." style={{ font: 'inherit', fontSize: 13, padding: '10px 14px', background: '#fff', border: '1px solid #aaa', borderRadius: 7, whiteSpace: 'nowrap' }}>Export council memo</button>}</div>
     {loading ? <p role="status">Preparing the local report…</p> : <>
       {stale && <p className="draft-changed">The draft has changed. This report describes the previous version.</p>}
       <p className="report-headline">{report.headline}</p>

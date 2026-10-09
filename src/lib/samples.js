@@ -1,4 +1,4 @@
-// Sample ordinances: 10 real Quezon City measures, written as plain-language summaries
+// Sample ordinances: 4 real Quezon City measures, written as plain-language summaries
 // of what public sources document (official titles, city notices, Supreme Court text).
 // They are NOT the full legal texts. Penalty amounts and details the sources don't
 // state are left out on purpose rather than invented.

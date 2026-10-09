@@ -60,8 +60,9 @@ export const crowdSchema = {
     // this is the part a councilor can act on.
     insight: { type: 'string', maxLength: 170 },
     // No quotation marks: the model "closed" its quote with ” and then padded ', , , ,' up to the cap
-    // (about 30 wasted tokens a call). The pattern also bounds the length.
-    quote: { type: 'string', pattern: '^[^"“”]{1,140}$' }
+    // (about 30 wasted tokens a call). The pattern also bounds the length, and bans raw line breaks,
+    // tabs and backslashes (a raw newline inside the string made the JSON invalid and cost a retry).
+    quote: { type: 'string', pattern: '^[^"“”\\\\\\n\\r\\t]{1,140}$' }
   },
   required: ['touches_me', 'effect', 'impact', 'helps', 'hurts', 'judgment', 'stance', 'comply', 'insight', 'quote']
 }

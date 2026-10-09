@@ -7,6 +7,7 @@ import { generateCrowd, CROWD_MIX, JOBS } from './personas.js'
 import { PANEL } from './panel.js'
 import { SAMPLES } from './samples.js'
 import { findRun, saveRun, exportRun } from './runcache.js'
+import { printCouncilMemo as printMemo, downloadCouncilMemo as downloadMemo, buildMemoHtml } from './memo.js'
 import { briefSchema, crowdSchema, crowdSchemaNoInsight, panelSchema, reportSchema, summarySchema } from './schemas.js'
 import {
   BRIEF_SYSTEM, briefUser, briefText, checkBrief,
@@ -391,6 +392,14 @@ export async function getSummaryHighlights(ordinanceText, crowdResults) {
 // Extra (additive): attach-file and paste helpers for the draft box (see extract.js).
 // readOrdinanceFile(file) -> { text, note }; prepareDraft(text) -> { text, note }.
 export { readOrdinanceFile, prepareDraft } from './extract.js'
+
+// ---------- Council memo ----------
+// One-page, print-ready brief of a finished run (see lib/memo.js). data: { draft, residents, results,
+// report, togetherness, source }. printCouncilMemo opens the print dialog (Save as PDF works);
+// downloadCouncilMemo saves the same page as .html.
+export const printCouncilMemo = data => printMemo({ model: MODEL, engineVersion: ENGINE_VERSION, ...data })
+export const downloadCouncilMemo = data => downloadMemo({ model: MODEL, engineVersion: ENGINE_VERSION, ...data })
+export const buildCouncilMemo = data => buildMemoHtml({ model: MODEL, engineVersion: ENGINE_VERSION, ...data })
 
 // ---------- Health ----------
 // true if Ollama is reachable and the engine model is installed.
