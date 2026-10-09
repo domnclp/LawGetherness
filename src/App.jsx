@@ -33,7 +33,6 @@ export default function App() {
   const [job, setJob] = useState('all')
   const [sector, setSector] = useState('all')
   const [selected, setSelected] = useState(0)
-  const [online, setOnline] = useState(navigator.onLine)
   const [previous, setPrevious] = useState(null)
   const [runDraft, setRunDraft] = useState('')
   const [mapZoom, setMapZoom] = useState(1)
@@ -47,9 +46,7 @@ export default function App() {
   useEffect(() => {
     let mounted = true
     checkOllama().then(ready => { if (mounted) setHealth(ready ? 'ready' : 'unavailable') }).catch(() => { if (mounted) setHealth('unavailable') })
-    const update = () => setOnline(navigator.onLine)
-    window.addEventListener('online', update); window.addEventListener('offline', update)
-    return () => { mounted = false; window.removeEventListener('online', update); window.removeEventListener('offline', update); controller.current?.abort() }
+    return () => { mounted = false; controller.current?.abort() }
   }, [])
   const completed = Object.values(results).filter(r => r && !r.error && stances.includes(r.stance))
   const counts = stances.map(s => completed.filter(r => r.stance === s).length)
@@ -105,27 +102,36 @@ export default function App() {
       <div className="rail-status" title="Local inference"><Icon name="shield" size={18} /><i className="status-dot" /></div>
     </aside>
     <main id="workspace" tabIndex={-1}>
-      <header className="topbar workspace-header"><a className="workspace-wordmark" href="#welcome">Law<em>Getherness</em><small>ORDINANCE WIND TUNNEL</small></a><nav className="workspace-links" aria-label="Page sections"><a href="#draft">Draft a law</a><a href="#community">Community</a><a href="#insights">Review</a></nav><span className="connection"><i className={`status-dot ${online ? '' : 'offline'}`} />{online ? 'Internet connected' : 'Internet disconnected'}</span></header>
+      <header className="topbar workspace-header"><a className="workspace-wordmark" href="#welcome">Law<em>Getherness</em><small>ORDINANCE WIND TUNNEL</small></a><nav className="workspace-links" aria-label="Page sections"><a href="#draft">Draft a law</a><a href="#community">Community</a><a href="#insights">Review</a></nav></header>
       <div className="page-content">
         <div className="workspace-grid">
           <section className="card draft-card" id="draft">
             <div className="card-heading draft-introduction"><div><h1>Test a law.</h1></div></div>
-            <label className="field-label" htmlFor="sample">Ordinance</label>
-            <select id="sample" value={sample} disabled={running} onChange={e => { setSample(e.target.value); const nextSample = SAMPLES.find(item => item.id === e.target.value); if (nextSample) setDraft(nextSample.text) }}><option value="custom">Your own ordinance</option>{SAMPLES.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select>
-            {selectedSample && <p className="sample-source"><a href={selectedSample.source} target="_blank" rel="noreferrer" title="Plain-language summary, not the full legal text.">Source ↗</a></p>}
-            <div className="editor-heading"><label className="field-label" htmlFor="ordinance">Draft</label></div>
-            <textarea id="ordinance" value={draft} disabled={running} onChange={e => { setDraft(e.target.value); setSample('custom') }} placeholder="Paste your draft ordinance here…" />
-            <div className="editor-footer"><span>Editable summary</span></div>
-            <div className="population-heading"><div><span className="field-label">Community size</span><details className="population-method"><summary>{CROWD_MIX.label}</summary><p>{CROWD_MIX.source}</p></details></div></div>
-            <div className="size-options" role="group" aria-label="Number of simulated residents">{[50, 100, 200].map(n => <button key={n} disabled={running} className={size === n ? 'chosen' : ''} aria-pressed={size === n} onClick={() => setSize(n)}><strong>{n}</strong><span>residents</span></button>)}</div>
-            <button className="primary-button" disabled={!draft.trim() || running} onClick={run}><Icon name="spark" size={18} />{running ? phase === 'checking' ? 'Checking local AI…' : phase === 'panel' ? 'Listening to panel…' : phase === 'report' ? 'Preparing report…' : `Simulating · ${done}/${residents.length}` : 'Run simulation'}<Icon name="arrow" size={18} /></button>
-            {running && phase !== 'report' && <button className="stop-button" onClick={() => { cancelled.current = true; controller.current?.abort() }}>Stop simulation</button>}
-            <p className="button-note"><Icon name="shield" size={13} /> {health === 'ready' ? 'Local AI ready' : health === 'checking' ? 'Checking local AI…' : `Start Ollama with ${MODEL} to run` }</p>
+            <div className="draft-layout">
+              <div className="draft-controls">
+                <div className="ordinance-picker">
+                  <label className="field-label" htmlFor="sample">Ordinance</label>
+                  <select id="sample" value={sample} disabled={running} onChange={e => { setSample(e.target.value); const nextSample = SAMPLES.find(item => item.id === e.target.value); if (nextSample) setDraft(nextSample.text) }}><option value="custom">Your own ordinance</option>{SAMPLES.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select>
+                  {selectedSample && <p className="sample-source"><a href={selectedSample.source} target="_blank" rel="noreferrer" title="Plain-language summary, not the full legal text.">Source ↗</a></p>}
+                </div>
+                <div className="population-heading"><span className="field-label">Community size</span><details className="population-method"><summary>{CROWD_MIX.label}</summary><p>{CROWD_MIX.source}</p></details></div>
+                <div className="size-run-row">
+                  <div className="size-options" role="group" aria-label="Number of simulated residents">{[50, 100, 200].map(n => <button key={n} disabled={running} className={size === n ? 'chosen' : ''} aria-label={`${n} residents`} aria-pressed={size === n} onClick={() => setSize(n)}><strong>{n}</strong></button>)}</div>
+                </div>
+                <button className="primary-button compact-run" aria-label="Run simulation" disabled={!draft.trim() || running} onClick={run}>{running ? `${done}/${residents.length}` : 'Run simulation'}<Icon name="arrow" size={16} /></button>
+                {running && phase !== 'report' && <button className="stop-button" onClick={() => { cancelled.current = true; controller.current?.abort() }}>Stop simulation</button>}
+              </div>
+              <div className="draft-editor">
+                <div className="editor-heading"><label className="field-label" htmlFor="ordinance">Draft</label></div>
+                <textarea id="ordinance" value={draft} disabled={running} onChange={e => { setDraft(e.target.value); setSample('custom') }} placeholder="Paste your draft ordinance here…" />
+                <div className="editor-footer"><span>Editable summary</span></div>
+              </div>
+            </div>
             {error && <div className="error-message" role="alert">{error}</div>}
           </section>
           <section className="card community-card" id="community">
-            <div className="card-heading"><div><h2>Community perspectives</h2></div><span className={`preview-badge ${mode === 'live' ? 'live' : ''}`}>{mode === 'preview' ? 'Sample preview' : running ? 'Running' : 'Local results'}</span></div>
-            <div className="results-caption" role="status"><span>{mode === 'preview' ? 'Illustrative data · not generated from your draft' : `${completed.length} valid reactions · ${done - completed.length} unavailable`}</span><strong>{residents.length} residents</strong></div>
+            <div className="card-heading"><div><h2>Community perspectives</h2></div></div>
+            {mode === 'live' && <div className="results-caption" role="status"><span>{`${completed.length} valid reactions · ${done - completed.length} unavailable`}</span><strong>{residents.length} residents</strong></div>}
             {mode === 'live' && draft !== runDraft && <p className="draft-changed">Draft edited. Run again to update these results.</p>}
             <ResponseContext mode={mode} draft={draft} runDraft={runDraft} person={person} reaction={reaction} />
             <div className="stat-grid">{stances.map((s, i) => <button key={s} className={`stat ${s} ${filter === s ? 'selected-stat' : ''}`} onClick={() => setFilter(filter === s ? 'all' : s)} aria-pressed={filter === s}><span><i />{s}</span><strong>{percentages[i]}<small>%</small></strong><span>{counts[i]}</span></button>)}</div>
@@ -136,7 +142,7 @@ export default function App() {
               <div className="map-cluster-label" title={CROWD_MIX.source}>Sector village · {CROWD_MIX.label}</div>
               <p className="map-source-note">{CROWD_MIX.source}</p>
               <div className="map-controls" aria-label="Map zoom controls"><button type="button" onClick={() => setMapZoom(zoom => Math.max(0.65, Number((zoom - 0.1).toFixed(2))))} disabled={mapZoom <= 0.65} aria-label="Zoom out">−</button><output aria-live="polite">{Math.round(mapZoom * 100)}%</output><button type="button" onClick={() => setMapZoom(zoom => Math.min(1.5, Number((zoom + 0.1).toFixed(2))))} disabled={mapZoom >= 1.5} aria-label="Zoom in">+</button><button type="button" className="reset-zoom" onClick={() => setMapZoom(1)}>Reset</button></div>
-              <div className="map-viewport"><div className={`resident-map sector-map ${mapDensity}`} style={{ zoom: mapZoom }} aria-label="Clickable 3D sector map of simulated residents">
+              <div className="map-viewport"><h3 className="map-title">Residents here</h3><div className={`resident-map sector-map ${mapDensity}`} style={{ zoom: mapZoom }} aria-label="Clickable 3D sector map of simulated residents">
                 {person && <aside className="resident-profile floating-profile"><span className="profile-label">SELECTED RESPONDENT</span><span className="profile-avatar">{person.name.split(' ').slice(0, 2).map(s => s[0]).join('')}</span><div className="resident-name"><strong>{person.name}</strong><span className={`stance-pill ${reaction?.stance || ''}`}>{reaction?.stance || 'Awaiting response'}</span></div><p>{person.job}<br />{person.age} years old · {person.sector}<br />Employment: {person.employment}</p><div className="profile-divider" /><span className="profile-label">SIMULATED RESPONSE</span><blockquote>{reaction?.quote ? `“${reaction.quote}”` : reaction?.error ? 'This response was unavailable.' : 'Their perspective will appear when the model responds.'}</blockquote>{reaction && !reaction.error && <small>Impact {reaction.impact}/5 · {reaction.comply === 'comply' ? 'Would comply' : reaction.comply === 'partial' ? 'Would partly comply' : 'Would evade'}</small>}<span className="profile-hint">Click another resident to compare perspectives.</span></aside>}
                   {sectorGroups.map(group => (
                     <section className="purok-tile sector-tile" key={group.name} data-sector={group.name} aria-label={`${group.name}, ${group.residents.length} simulated residents`}>
