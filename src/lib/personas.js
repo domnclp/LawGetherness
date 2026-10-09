@@ -72,6 +72,47 @@ const VOICES = [
   'calm and matter-of-fact'
 ]
 
+// What a resident talks about when an ordinance doesn't touch them personally.
+// Without it, bystanders all repeat "we must follow it for the barangay".
+const ANGLES = [
+  'doubts it will really be enforced, or fears only the poor will be caught',
+  'thinks of a specific neighbor or relative it will hurt',
+  'says it is long overdue and wishes it came sooner',
+  'worries it will become another source of kotong or fines',
+  'thinks about the health and safety of the children in the area',
+  'wants the barangay to explain it properly first before enforcing',
+  'compares it to a past ordinance that was forgotten after a month',
+  'cares whether it is fair to small earners like vendors and drivers',
+  'asks what the city will provide in return (bins, signs, parking, programs)'
+]
+
+// Personal values: matter most for social ordinances (curfew, anti-discrimination).
+const VALUES = [['traditional and religious', 3], ['moderate', 4], ['progressive', 2]]
+
+// Everyday life details that decide whether an ordinance actually touches someone
+// (a smoking ban means little to a non-smoker; a curfew matters to parents of teens).
+// Rough rates for an urban Philippine barangay; approximate, not census data.
+function lifeDetails(rng, age, job, income, household, commute) {
+  const d = []
+  if (/own tricycle|own jeepney|motorcycle|private car/.test(commute)) d.push(`drives a ${commute.replace('own ', '')} on city roads every day`)
+  if (age < 18) d.push('is a minor (under 18)')
+  if (age >= 18 && rng() < 0.22) d.push('smokes cigarettes daily')
+  if (age >= 16 && age <= 35 && rng() < 0.12) d.push('vapes')
+  if (age >= 25 && age <= 60 && household >= 3 && rng() < 0.7) {
+    d.push(rng() < 0.5 ? 'has a teenager (13-17) at home who goes out with friends at night' : 'has young kids in elementary school')
+  }
+  const carOdds = income === 'above ₱50k' ? 0.8 : income === '₱25–50k' ? 0.35 : 0.04
+  if (rng() < carOdds) d.push(rng() < 0.6 ? 'owns a car and parks it on the street outside the house' : 'owns a car with a garage')
+  if (age >= 18 && rng() < 0.2) d.push('sometimes drinks with neighbors outside in the evening')
+  if (rng() < 0.07) d.push('is LGBTQ+')
+  if (/vendor|sari-sari|small business/.test(job) && rng() < 0.7) d.push('hands out plastic bags to customers every day')
+  if (/small business/.test(job) && rng() < 0.4) d.push('runs a small carinderia that serves takeout with disposable spoons and containers')
+  if (/small business|sari-sari/.test(job) && rng() < 0.5) d.push('hires a few workers')
+  if (rng() < 0.3) d.push('often orders takeout or food delivery')
+  if (rng() < 0.12) d.push('sometimes drops wrappers on the street when no trash bin is nearby')
+  return d
+}
+
 const occupationTable = OCCUPATIONS.map(([job, w, info]) => [{ job, ...info }, w])
 
 export function generateCrowd(n = 200, seed = 42) {
@@ -80,17 +121,24 @@ export function generateCrowd(n = 200, seed = 42) {
   for (let i = 0; i < n; i++) {
     const occ = weighted(rng, occupationTable)
     const [lo, hi] = occ.ages
+    const age = lo + Math.floor(rng() * (hi - lo + 1))
+    const income = weighted(rng, occ.income)
+    const household = 1 + Math.floor(rng() * 7)   // 1–7 people
+    const commute = weighted(rng, occ.commute)
     crowd.push({
       id: i,
       name: `${pick(rng, FIRST_NAMES)} ${pick(rng, LAST_NAMES)}`,
-      age: lo + Math.floor(rng() * (hi - lo + 1)),
+      age,
       job: occ.job,
-      income: weighted(rng, occ.income),
-      commute: weighted(rng, occ.commute),
-      household: 1 + Math.floor(rng() * 7),       // 1–7 people
+      income,
+      commute,
+      household,
       purok: 1 + Math.floor(rng() * 7),           // Purok 1–7
       outlook: weighted(rng, DISPOSITIONS),
-      voice: pick(rng, VOICES)
+      voice: pick(rng, VOICES),
+      values: weighted(rng, VALUES),
+      angle: pick(rng, ANGLES),
+      details: lifeDetails(rng, age, occ.job, income, household, commute)
     })
   }
   return crowd

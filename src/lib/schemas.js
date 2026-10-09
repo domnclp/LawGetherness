@@ -4,16 +4,33 @@
 // `effect` comes first on purpose: the model states how the ordinance touches it
 // before choosing a stance, which keeps stance/impact consistent with the persona.
 
+// One call per ordinance: plain-language facts every resident reasons from,
+// so a small model doesn't misread legal text 200 different ways.
+export const briefSchema = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    who_must_change: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+    what_changes: { type: 'string' },
+    where_when: { type: 'string' },
+    penalty: { type: 'string' },
+    exemptions: { type: 'string' }
+  },
+  required: ['summary', 'who_must_change', 'what_changes', 'where_when', 'penalty', 'exemptions']
+}
+
+// `touches_me` is a categorical first step: does this ordinance reach my actual daily life?
 export const crowdSchema = {
   type: 'object',
   properties: {
+    touches_me: { enum: ['directly', 'indirectly', 'not really'] },
     effect: { type: 'string', maxLength: 90 },
     impact: { type: 'integer', minimum: 1, maximum: 5 },
     stance: { enum: ['support', 'mixed', 'oppose'] },
     comply: { enum: ['comply', 'partial', 'evade'] },
     quote: { type: 'string', maxLength: 120 }
   },
-  required: ['effect', 'impact', 'stance', 'comply', 'quote']
+  required: ['touches_me', 'effect', 'impact', 'stance', 'comply', 'quote']
 }
 
 // Same idea as the crowd: reason about life impact before picking a stance.
@@ -25,9 +42,10 @@ export const panelSchema = {
     stance: { enum: ['support', 'mixed', 'oppose'] },
     comply: { enum: ['comply', 'partial', 'evade'] },
     reaction: { type: 'string', maxLength: 300 },
-    loophole: { type: 'string', maxLength: 300 }
+    loophole: { type: 'string', maxLength: 300 },
+    what_would_help: { type: 'string', maxLength: 300 }
   },
-  required: ['life_impact', 'impact', 'stance', 'comply', 'reaction', 'loophole']
+  required: ['life_impact', 'impact', 'stance', 'comply', 'reaction', 'loophole', 'what_would_help']
 }
 
 export const reportSchema = {
