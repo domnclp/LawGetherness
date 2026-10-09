@@ -60,7 +60,19 @@ const DISPOSITIONS = [
   ['you distrust local officials and suspect new rules are about fines and kotong', 2]
 ]
 
-const occupationTable =OCCUPATIONS.map(([job, w, info]) => [{ job, ...info }, w])
+// How the resident talks. Gives quotes different voices instead of one repeated opener.
+const VOICES = [
+  'blunt and direct, gets straight to the point',
+  'respectful, uses "po" and "opo"',
+  'jokey, makes a light biro even when annoyed',
+  'warm, thinks about family and neighbors',
+  'upbeat and optimistic, likes seeing the barangay improve',
+  'practical, talks in pesos and minutes',
+  'curious, asks a short question',
+  'calm and matter-of-fact'
+]
+
+const occupationTable = OCCUPATIONS.map(([job, w, info]) => [{ job, ...info }, w])
 
 export function generateCrowd(n = 200, seed = 42) {
   const rng = mulberry32(seed)
@@ -77,7 +89,8 @@ export function generateCrowd(n = 200, seed = 42) {
       commute: weighted(rng, occ.commute),
       household: 1 + Math.floor(rng() * 7),       // 1–7 people
       purok: 1 + Math.floor(rng() * 7),           // Purok 1–7
-      outlook: weighted(rng, DISPOSITIONS)
+      outlook: weighted(rng, DISPOSITIONS),
+      voice: pick(rng, VOICES)
     })
   }
   return crowd

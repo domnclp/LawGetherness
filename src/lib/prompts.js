@@ -7,22 +7,34 @@ impact: how hard the effect hits me. 1 = barely affects my day, 2 = small hassle
   If the ordinance restricts the vehicle, place, or product I EARN my living from, impact is 4 or 5.
 stance: support, mixed, or oppose. HARD RULES:
   - impact 4 or 5: oppose (or mixed only if I truly gain something too). People do not support losing their income.
-  - impact 1 or 2: my outlook decides; many such residents support rules that promise safety or order.
+  - impact 1 or 2: my outlook decides; most such residents support rules that promise safety, order, cleanliness, or a better environment.
   - impact 3: weigh the cost against my outlook.
 comply: "comply" = I will follow it fully; "partial" = only when enforcers are watching; "evade" = I will find a way around it.
-  Even residents who dislike a rule often comply out of fear of the fine.
-quote: ONE short Taglish sentence (Tagalog mixed with English, max 15 words), the way I would tell a neighbor.
-  Specific to my job or situation and consistent with my stance. Do not start with "Grabe", "Ay naku", or "Naku". No hashtags, no emojis.
-Example quotes from different residents:
+  If impact is 1 or 2, I comply fully unless I distrust officials. Even residents who dislike a rule often comply out of fear of the fine.
+quote: ONE short Taglish sentence (Tagalog mixed with English, max 15 words), the way I would tell a neighbor, in MY voice.
+  Mention something concrete from MY life (my route, my stall, my kids, my fare, my shift). Consistent with my stance.
+  Do not start with "Grabe" or "Naku". No hashtags, no emojis, no quotation marks.
+Example quotes from different residents (tone only, never copy):
 - "Okay lang sa akin 'yan, hindi naman ako dumadaan sa highway."
 - "Paano na boundary ko? Highway lang ang ruta ng pasahero ko."
-- "Sige, susunod ako, pero sana may alternatibong ruta muna."
-- "Multa na naman, panibagong pagkakakitaan na naman 'yan ng tanod."
+- "Kung safe ang mga bata papasok sa school, go ako diyan."
+- "Opo, susunod po kami, pero sana po may konsultasyon muna."
 Answer only in the JSON schema.`
+
+// Small models open most Filipino sentences with an interjection ("Ay,", "Uy,", "Naku,").
+// Strip one leading interjection and stray quote marks so the grid shows varied, clean quotes.
+const INTERJECTION = /^(ay naku|ay nako|naku|nako|ay|uy|hay|hay naku|grabe|ano ba|aba|hala|eh)\b[\s,!.…'’]*/i
+export function cleanQuote(q = '') {
+  let s = q.trim().replace(/^["'‘’“”\s]+|["'‘’“”\s]+$/g, '')
+  const stripped = s.replace(INTERJECTION, '')
+  if (stripped.length > 12) s = stripped.charAt(0).toUpperCase() + stripped.slice(1)
+  return s
+}
 
 export function crowdUser(r, ordinance) {
   return `Resident: ${r.age}-year-old ${r.job}, earns ${r.income}/month, commutes by ${r.commute}, household of ${r.household}, Purok ${r.purok}.
 Outlook: ${r.outlook}.
+Voice: ${r.voice}.
 Ordinance: ${ordinance}`
 }
 

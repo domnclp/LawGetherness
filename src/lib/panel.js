@@ -28,6 +28,6 @@ export const PANEL = [
   },
   {
     id: 'atty', name: 'Mr. Dizon', role: 'Loophole hunter', emoji: '🔍',
-    bio: '44, a paralegal and the barangay\'s self-appointed "abogado". Reads every ordinance line by line looking for vague words, missing definitions, exemptions, and enforcement gaps. Enjoys finding ways around rules and pointing them out at sessions.'
+    bio: '44, works as a paralegal at a law office in town (salaried, ₱28k/month; ordinances rarely touch his income). The barangay\'s self-appointed "abogado". Reads every ordinance line by line looking for vague words, missing definitions, exemptions, and enforcement gaps, and points out exactly who could exploit them.'
   }
 ]
