@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { runCrowd, runPanel, runReport, runSummary, getQuickSummary, readOrdinanceFile, prepareDraft, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
+import { runCrowd, runPanel, runReport, runSummary, getQuickSummary, getRunSource, prefetchBrief, readOrdinanceFile, prepareDraft, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
 import PanelCards from './components/PanelCards.jsx'
 import Report from './components/Report.jsx'
 import ResponseContext from './components/ResponseContext.jsx'
@@ -50,6 +50,7 @@ export default function App() {
   const [panelText, setPanelText] = useState({})
   const [report, setReport] = useState(null)
   const [togetherness, setTogetherness] = useState(null)
+  const [runSource, setRunSource] = useState(null)   // 'saved' | 'memory' | null (live), from lib/api.js getRunSource
   const fileInput = useRef(null)
   const controller = useRef(null)
   const cancelled = useRef(false)
@@ -58,6 +59,11 @@ export default function App() {
     checkOllama().then(ready => { if (mounted) setHealth(ready ? 'ready' : 'unavailable') }).catch(() => { if (mounted) setHealth('unavailable') })
     return () => { mounted = false; controller.current?.abort() }
   }, [])
+  useEffect(() => {
+    if (running) return
+    const timer = setTimeout(() => prefetchBrief(draft), 800)
+    return () => clearTimeout(timer)
+  }, [draft, running])
   const completed = Object.values(results).filter(r => r && !r.error && stances.includes(r.stance))
   const counts = stances.map(s => completed.filter(r => r.stance === s).length)
   const percentages = counts.map(n => completed.length ? Math.round(n / completed.length * 100) : 0)
@@ -80,12 +86,14 @@ export default function App() {
     setResidents(people); setResults({}); setMode('live'); setError(''); setRunning(true); setSelected(0); setFilter('all'); setRunDraft(draft); setMapZoom(size >= 200 ? 0.75 : size >= 100 ? 0.9 : 1)
     cancelled.current = false
     const abort = new AbortController(); controller.current = abort
-    setPanelResults({}); setPanelText({}); setReport(null); setTogetherness(null); setPhase('checking'); setHealth('checking')
+    setPanelResults({}); setPanelText({}); setReport(null); setTogetherness(null); setRunSource(null); setPhase('checking'); setHealth('checking')
     try {
+      const source = await getRunSource(draft, size)
+      setRunSource(source)
       const ready = await checkOllama()
       if (abort.signal.aborted) return
       setHealth(ready ? 'ready' : 'unavailable')
-      if (!ready) throw new Error(`Local AI is unavailable. Start Ollama with ${MODEL} installed, then try again.`)
+      if (!ready && !source) throw new Error(`Local AI is unavailable. Start Ollama with ${MODEL} installed, then try again.`)
       setPhase('crowd')
       const crowd = await runCrowd(draft, size, (_index, persona, result) => {
         if (!abort.signal.aborted) setResults(old => ({ ...old, [persona.id]: result }))
@@ -176,7 +184,7 @@ export default function App() {
               </div>
               <aside className="community-response-box" data-summary-slot="response-summary"><span className="field-label">Togetherness summary</span><p>{togetherness?.mood && <strong>{togetherness.mood}. </strong>}{responseSummary}</p></aside>
             </div>
-            {mode === 'live' && <div className="results-caption" role="status"><span>{`${completed.length} valid reactions · ${done - completed.length} unavailable`}</span><strong>{residents.length} residents</strong></div>}
+            {mode === 'live' && <div className="results-caption" role="status"><span>{`${completed.length} valid reactions · ${done - completed.length} unavailable`}{runSource === 'saved' ? ' · Saved run, computed earlier on this laptop' : runSource === 'memory' ? ' · Remembered from an earlier run of this draft' : ''}</span><strong>{residents.length} residents</strong></div>}
             {mode === 'live' && draft !== runDraft && <p className="draft-changed">Draft edited. Run again to update these results.</p>}
             <ResponseContext mode={mode} draft={draft} runDraft={runDraft} person={person} reaction={reaction} />
             {running && <progress aria-label="Simulation progress" max={residents.length} value={done} />}

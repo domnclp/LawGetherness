@@ -6,6 +6,7 @@ import { runPool } from './pool.js'
 import { generateCrowd, CROWD_MIX, JOBS } from './personas.js'
 import { PANEL } from './panel.js'
 import { SAMPLES } from './samples.js'
+import { findRun, saveRun, exportRun } from './runcache.js'
 import { briefSchema, crowdSchema, crowdSchemaNoInsight, panelSchema, reportSchema, summarySchema } from './schemas.js'
 import {
   BRIEF_SYSTEM, briefUser, briefText, checkBrief,
@@ -33,6 +34,40 @@ export const PANEL_PERSONAS = PANEL
 // Extra (additive): 10 Quezon City sample ordinances: { id, title, source, text }.
 export { SAMPLES }
 
+// ---------- Run cache ----------
+// Bump on any prompt, schema, or persona change: cached and saved answers from an older engine are ignored.
+export const ENGINE_VERSION = '2026-10-10.1'
+const cacheKey = () => ({ version: ENGINE_VERSION, model: MODEL })
+const savedIdFor = text => SAMPLES.find(s => s.text === text)?.id
+const stripSource = r => { if (!r || typeof r !== 'object') return r; const { source, ...rest } = r; return rest }
+// Finds a remembered or saved run for this text and seeds the brief from it (no brief call needed).
+async function cachedRun(text) {
+  const e = await findRun(text, { ...cacheKey(), savedId: savedIdFor(text) })
+  if (e?.brief && !briefCache.has(text)) briefCache.set(text, Promise.resolve(e.brief))
+  return e
+}
+const pause = ms => new Promise(r => setTimeout(r, ms))
+
+// 'saved' (pre-computed preset), 'memory' (finished earlier on this laptop), or null (will run live),
+// for the whole run at this size (crowd, summary, panel and report all cached).
+export async function getRunSource(ordinanceText, size) {
+  const e = await cachedRun(ordinanceText)
+  if (!e) return null
+  const allCrowd = PERSONAS_200.slice(0, size).every(p => e.crowd?.[p.id])
+  return allCrowd ? e.origin : null
+}
+
+// Starts the brief call early (e.g. while the user is still looking at the draft) so Run starts faster.
+export function prefetchBrief(ordinanceText) {
+  if (!ordinanceText?.trim()) return
+  cachedRun(ordinanceText).then(() => getBrief(ordinanceText)).catch(() => {})
+}
+
+// Plain JSON of a finished run (for public/runs/<id>.json; used by the pre-compute script).
+export function exportSavedRun(ordinanceText) {
+  return exportRun(ordinanceText, cacheKey())
+}
+
 // ---------- Brief ----------
 // Reads the ordinance once into plain facts that every resident and panelist reasons from.
 // Cached per ordinance text (the promise is cached, so crowd and panel share one call).
@@ -41,6 +76,7 @@ export function getBrief(ordinanceText) {
   if (!briefCache.has(ordinanceText)) {
     const call = () => chat({ system: BRIEF_SYSTEM, user: briefUser(ordinanceText), schema: briefSchema, numPredict: 850, temperature: 0 })   // deterministic: one brief field ("Real benefit: None") swung a 30-resident curfew run from 23 to 9 support
     const p = call().catch(call).then(b => checkBrief(b, ordinanceText))
+    p.then(brief => saveRun(ordinanceText, cacheKey(), { brief })).catch(() => {})
     briefCache.set(ordinanceText, p)
     p.catch(() => briefCache.delete(ordinanceText))   // don't cache failures
   }
@@ -67,8 +103,24 @@ async function briefOrText(ordinanceText) {
 // was asked again.
 // Resolves to the array of reactions in persona order.
 const lastCrowd = new Map()   // ordinance text -> { personas, results }, so runPanel can show neighbors' views
+// Remembered or saved residents come back instantly (marked source: 'saved' | 'memory', revealed a
+// few ms apart so the map still fills in); only the missing residents run live.
 export async function runCrowd(ordinanceText, size, onResult, signal) {
   const personas = PERSONAS_200.slice(0, size)
+  const entry = await cachedRun(ordinanceText)
+  const known = personas.map(p => entry?.crowd?.[p.id] || null)
+  const gap = Math.min(8, 1500 / Math.max(1, known.filter(Boolean).length))
+  for (let i = 0; i < personas.length; i++) {
+    if (!known[i]) continue
+    if (signal?.aborted) break
+    known[i] = { ...known[i], source: entry.origin }
+    onResult?.(i, personas[i], known[i])
+    await pause(gap)
+  }
+  if (known.every(Boolean) || signal?.aborted) {
+    if (!signal?.aborted) lastCrowd.set(ordinanceText, { personas, results: known })
+    return known
+  }
   const { text: brief, issues } = await briefOrText(ordinanceText)
   const affected = affectedGroupsFor(ordinanceText)   // occupation groups whose work this ordinance touches
   const lawful = /ordinary, lawful regulation/.test(brief)
@@ -85,7 +137,7 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
   })
   // Crowd-level checks on top of findContradiction: a quote that repeats a neighbor's ("Maganda 'yan
   // para sa mga bata" four times), and "for the children" under a rule that has nothing to do with kids.
-  const seen = []
+  const seen = known.filter(r => r?.quote).map(r => ({ q: r.quote, w: words(r.quote) }))
   const dupOf = r => { const w = words(r?.quote || ''); return w.size >= 3 ? seen.find(x => jaccard(w, x.w) >= 0.5)?.q : undefined }
   const kidsTopic = /minor|curfew|child|youth|school/i.test(ordinanceText)
   const check = (r, p) => findContradiction(r, p, brief, affected, ordinanceText)
@@ -117,19 +169,27 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
   const tasks = personas.map((p, i) => async s => {
     const first = await ask(p, i, s)
     const problem = check(first, p)
-    if (!problem) return accept(reconcile(first, lawful))
+    // A duplicate quote from a resident the rule doesn't touch isn't worth a whole extra call.
+    if (!problem || (!plan[i].touched && problem.startsWith('your quote repeats'))) return accept(reconcile(first, lawful))
     // One re-ask with the specific problem named. Keep the second answer if it fixed that problem
     // (even if a smaller one remains); otherwise keep the first.
     const second = await ask(p, i, s, `\n\nYour previous answer was inconsistent: ${problem}. Answer again, consistent with the facts about you.`).catch(() => null)
     const final = second && check(second, p) !== problem ? { ...second, reasked: true } : first
     return accept(reconcile(scrub(final, p, i), lawful))
   })
-  const results = await runPool(tasks, {
+  const todo = personas.map((_, i) => i).filter(i => !known[i])
+  const live = await runPool(todo.map(i => tasks[i]), {
     concurrency: 2,
     signal,
-    onResult: (i, r) => onResult?.(i, personas[i], r ?? { error: true })
+    onResult: (j, r) => onResult?.(todo[j], personas[todo[j]], r ?? { error: true })
   })
-  if (!signal?.aborted) lastCrowd.set(ordinanceText, { personas, results })
+  const results = [...known]
+  todo.forEach((i, j) => { results[i] = live[j] })
+  if (!signal?.aborted) {
+    lastCrowd.set(ordinanceText, { personas, results })
+    const fresh = Object.fromEntries(todo.filter((i, j) => live[j] && !live[j].error).map((i, j) => [personas[i].id, stripSource(results[i])]))
+    saveRun(ordinanceText, cacheKey(), { crowd: fresh })
+  }
   return results.map(r => r ?? { error: true })
 }
 
@@ -150,8 +210,21 @@ function preview(partial) {
 // Resolves to { [personaId]: result }.
 export async function runPanel(ordinanceText, onToken, onDone, signal) {
   const out = {}
-  const { text: brief, issues } = await briefOrText(ordinanceText)
   const crowd = lastCrowd.get(ordinanceText)
+  const size = crowd?.personas.length || 0
+  const entry = await cachedRun(ordinanceText)
+  const kept = entry?.bySize?.[size]?.panel
+  if (kept) {
+    for (const p of PANEL) {
+      if (signal?.aborted) break
+      out[p.id] = { ...kept[p.id], source: entry.origin }
+      onToken?.(p.id, preview(JSON.stringify(kept[p.id] || {})))
+      onDone?.(p.id, out[p.id])
+      await pause(120)
+    }
+    return out
+  }
+  const { text: brief, issues } = await briefOrText(ordinanceText)
   const neighbors = crowd ? neighborsDigest(crowd.personas, crowd.results) : ''
   const tasks = PANEL.map((p, i) => async s => {
     const system = PANEL_SYSTEM + (p.id === 'atty' ? LOOPHOLE_SYSTEM_EXTRA : '')
@@ -170,6 +243,7 @@ export async function runPanel(ordinanceText, onToken, onDone, signal) {
       onDone?.(PANEL[i].id, out[PANEL[i].id])
     }
   })
+  if (!signal?.aborted && size && PANEL.every(p => out[p.id] && !out[p.id].error)) saveRun(ordinanceText, cacheKey(), { size, panel: out })
   return out
 }
 
@@ -189,6 +263,8 @@ export async function runReport(ordinanceText, crowdResults, panelResults) {
     return r && !r.error && r.stance ? r : null
   })
   const personas = PERSONAS_200.slice(0, reactions.length)
+  const kept = (await cachedRun(ordinanceText))?.bySize?.[reactions.length]?.report
+  if (kept) return kept
   const summary = summarizeCrowd(personas, reactions)
   const fairness = fairnessLens(personas, reactions)
   const insights = clusterInsights(personas, reactions)
@@ -230,7 +306,9 @@ export async function runReport(ordinanceText, crowdResults, panelResults) {
     else report = { ...report, headline: `${majority.label.charAt(0).toUpperCase() + majority.label.slice(1)}; top concern: ${(report.top_loopholes?.[0] || 'see details').replace(/\.$/, '')}.` }
   }
   const { analysis, ...visible } = report     // the scratchpad stays private
-  return { ...visible, verdict: unlawful ? 'withdraw' : 'revise', legality: brief?.legality ?? 'unknown', fairness, insights }
+  const final = { ...visible, verdict: unlawful ? 'withdraw' : 'revise', legality: brief?.legality ?? 'unknown', fairness, insights }
+  saveRun(ordinanceText, cacheKey(), { size: reactions.length, report: final })
+  return final
 }
 
 // Majority stance as data + a plain label, e.g. { stance: 'support', pct: 63, label: 'most residents support it (63%)' }.
@@ -274,6 +352,8 @@ export async function runSummary(ordinanceText, crowdResults, signal) {
   const personas = PERSONAS_200.slice(0, reactions.length)
   const quick = quickSummary(personas, reactions)
   if (!reactions.some(Boolean)) return quick
+  const kept = (await cachedRun(ordinanceText))?.bySize?.[reactions.length]?.summary
+  if (kept) return kept
   let brief = null
   try { brief = await getBrief(ordinanceText) } catch (err) { if (err.message?.startsWith('Ollama not running')) throw err }
   const legal = brief && (brief.targets_identity || brief.legality !== 'likely valid') ? legalCheckText(brief) : ''
@@ -282,7 +362,9 @@ export async function runSummary(ordinanceText, crowdResults, signal) {
     const text = tidyEnd((r.summary || '').trim(), 600)
     const majority = majorityOf(summarizeCrowd(personas, reactions))
     if (text.split(/\s+/).length < 12 || headlineContradicts(text, majority)) return quick
-    return { mood: quick.mood, summary: text, source: 'model' }
+    const result = { mood: quick.mood, summary: text, source: 'model' }
+    saveRun(ordinanceText, cacheKey(), { size: reactions.length, summary: result })
+    return result
   } catch (err) {
     if (err.message?.startsWith('Ollama not running') || signal?.aborted) throw err
     return quick
