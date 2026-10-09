@@ -674,6 +674,61 @@ Hardest hit: ${hardest.join('; ') || 'no clear group'}.${concerns.length ? `\nCo
 Voices: ${voices.join(' | ')}`
 }
 
+// ---------- Togetherness summary ----------
+// What the community actually thinks, for the councilor, right after the crowd finishes.
+
+// Mood from the real split (code, so the label can never contradict the numbers).
+export function moodOf({ stance, total }) {
+  if (!total) return 'No responses yet'
+  const pct = s => stance[s] / total * 100
+  if (pct('support') >= 70) return 'Broadly supportive'
+  if (pct('support') >= 50) return 'Supportive, with reservations'
+  if (pct('oppose') >= 70) return 'Strongly opposed'
+  if (pct('oppose') >= 50) return 'Mostly opposed'
+  return 'Divided'
+}
+
+const share = (n, total) => `${Math.round(n / total * 100)}%`
+
+// Instant code-only summary, shown while the model writes the real one (and as its fallback).
+export function quickSummary(personas, results) {
+  const s = summarizeCrowd(personas, results)
+  if (!s.total) return { mood: 'No responses yet', summary: '', source: 'code' }
+  const top = clusterInsights(personas, results, 1)[0]
+  const hardest = Object.entries(s.byJob).filter(([, v]) => v.n >= 2)
+    .sort((a, b) => b[1].impactSum / b[1].n - a[1].impactSum / a[1].n)[0]
+  const parts = [`Of ${s.total} simulated residents, ${share(s.stance.support, s.total)} support the draft, ${share(s.stance.mixed, s.total)} are mixed, and ${share(s.stance.oppose, s.total)} oppose it.`]
+  if (s.touches['not really'] / s.total > 0.6) parts.push(`Most say it does not change their own week much.`)
+  if (hardest && hardest[1].impactSum / hardest[1].n >= 2.5) parts.push(`It weighs most on the ${hardest[0]} group (average impact ${(hardest[1].impactSum / hardest[1].n).toFixed(1)} of 5).`)
+  if (top) parts.push(`The most raised point (${top.count} ${top.count === 1 ? 'resident' : 'residents'}): ${top.text.replace(/\.$/, '')}.`)
+  return { mood: moodOf(s), summary: parts.join(' '), source: 'code' }
+}
+
+export const SUMMARY_SYSTEM = `You summarize what a SIMULATED community of residents thinks about a draft city ordinance, for the councilor who wrote it.
+Write 2 or 3 plain English sentences, max 70 words, warm and human but factual.
+Say: why the supporters support it, what the others worry about and which groups they are, and any point many residents raised.
+Use ONLY the data given. Do not invent numbers, groups, or concerns. Do not restate every percentage; the mood and split are shown separately.
+If the legal check says the draft targets people for who they are or is likely unconstitutional, say residents reject it on rights grounds.
+${RESPECT}
+Answer only in the JSON schema.`
+
+export function summaryUser(ordinance, personas, results, legalCheck = '') {
+  const s = summarizeCrowd(personas, results)
+  const concerns = clusterInsights(personas, results, 4).map(c => `- raised by ${c.count} (${c.groups.slice(0, 2).join(', ')}): ${clip(c.text, 140)}`).join('\n')
+  const quotes = ['support', 'mixed', 'oppose'].flatMap(st => results
+    .map((r, i) => (r && !r.error && !r.adjusted && r.stance === st && r.quote ? `${personas[i].job} (${st}): "${clip(r.quote, 120)}"` : null))
+    .filter(Boolean).slice(0, 2))
+  return `Ordinance:
+${clip(ordinance, 1200)}
+${legalCheck ? `\n${legalCheck}\n` : ''}
+Simulated residents: ${s.total}. Mood: ${moodOf(s)} (${s.stance.support} support, ${s.stance.mixed} mixed, ${s.stance.oppose} oppose).
+Touched: ${s.touches.directly} directly, ${s.touches.indirectly} indirectly, ${s.touches['not really']} not really.
+Most affected groups:
+${groupLines(s.byJob, 4, s.total >= 30 ? 2 : 1)}
+${concerns ? `Concerns raised, grouped:\n${concerns}\n` : ''}What residents said:
+${quotes.map(q => '- ' + q).join('\n')}`
+}
+
 // ---------- Insight clusters (code only) ----------
 // Many residents make the same point in different words. Grouping them turns repetition into a
 // signal for the councilor ("raised by 12 residents") instead of 12 copies of one line.

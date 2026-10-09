@@ -6,13 +6,14 @@ import { runPool } from './pool.js'
 import { generateCrowd, CROWD_MIX, JOBS } from './personas.js'
 import { PANEL } from './panel.js'
 import { SAMPLES } from './samples.js'
-import { briefSchema, crowdSchema, crowdSchemaNoInsight, panelSchema, reportSchema } from './schemas.js'
+import { briefSchema, crowdSchema, crowdSchemaNoInsight, panelSchema, reportSchema, summarySchema } from './schemas.js'
 import {
   BRIEF_SYSTEM, briefUser, briefText, checkBrief,
   CROWD_SYSTEM, crowdUser, PANEL_SYSTEM, LOOPHOLE_SYSTEM_EXTRA, panelUser,
   REPORT_SYSTEM, REPORT_UNLAWFUL_SYSTEM, reportUser, summarizeCrowd, cleanQuote, legalCheckText, reconcile,
   findContradiction, neighborsDigest, fairnessLens, missingSections, affectedGroupsFor,
-  relevantDetails, pickIssue, tidyEnd, clusterInsights, bystanderEffect, words, jaccard
+  relevantDetails, pickIssue, tidyEnd, clusterInsights, bystanderEffect, words, jaccard,
+  SUMMARY_SYSTEM, summaryUser, quickSummary
 } from './prompts.js'
 
 // 200 seeded adult residents (same every run), national approximate mix. Smaller runs use
@@ -258,6 +259,39 @@ export function getInsights(crowdResults, n = 6) {
   const reactions = Array.from(crowdResults, x => { const r = x?.reaction ?? x; return r && !r.error && r.stance ? r : null })
   return clusterInsights(PERSONAS_200.slice(0, reactions.length), reactions, n)
 }
+
+// ---------- Togetherness summary ----------
+// What the community actually thinks, in 2-3 sentences, right after the crowd finishes.
+// Returns { mood, summary, source: 'model' | 'code' }. mood comes from the real split (code);
+// the model writes only the sentences, and the code summary is used if the model fails or contradicts the numbers.
+export function getQuickSummary(crowdResults) {
+  const reactions = Array.from(crowdResults, x => { const r = x?.reaction ?? x; return r && !r.error && r.stance ? r : null })
+  return quickSummary(PERSONAS_200.slice(0, reactions.length), reactions)
+}
+
+export async function runSummary(ordinanceText, crowdResults, signal) {
+  const reactions = Array.from(crowdResults, x => { const r = x?.reaction ?? x; return r && !r.error && r.stance ? r : null })
+  const personas = PERSONAS_200.slice(0, reactions.length)
+  const quick = quickSummary(personas, reactions)
+  if (!reactions.some(Boolean)) return quick
+  let brief = null
+  try { brief = await getBrief(ordinanceText) } catch (err) { if (err.message?.startsWith('Ollama not running')) throw err }
+  const legal = brief && (brief.targets_identity || brief.legality !== 'likely valid') ? legalCheckText(brief) : ''
+  try {
+    const r = await chat({ system: SUMMARY_SYSTEM, user: summaryUser(ordinanceText, personas, reactions, legal), schema: summarySchema, numPredict: 260, temperature: 0.3, seed: 7, signal })
+    const text = tidyEnd((r.summary || '').trim(), 600)
+    const majority = majorityOf(summarizeCrowd(personas, reactions))
+    if (text.split(/\s+/).length < 12 || headlineContradicts(text, majority)) return quick
+    return { mood: quick.mood, summary: text, source: 'model' }
+  } catch (err) {
+    if (err.message?.startsWith('Ollama not running') || signal?.aborted) throw err
+    return quick
+  }
+}
+
+// Extra (additive): attach-file and paste helpers for the draft box (see extract.js).
+// readOrdinanceFile(file) -> { text, note }; prepareDraft(text) -> { text, note }.
+export { readOrdinanceFile, prepareDraft } from './extract.js'
 
 // ---------- Health ----------
 // true if Ollama is reachable and the engine model is installed.

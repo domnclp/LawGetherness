@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { runCrowd, runPanel, runReport, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
+import { runCrowd, runPanel, runReport, runSummary, getQuickSummary, readOrdinanceFile, prepareDraft, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
 import PanelCards from './components/PanelCards.jsx'
 import Report from './components/Report.jsx'
 import ResponseContext from './components/ResponseContext.jsx'
@@ -49,6 +49,7 @@ export default function App() {
   const [panelResults, setPanelResults] = useState({})
   const [panelText, setPanelText] = useState({})
   const [report, setReport] = useState(null)
+  const [togetherness, setTogetherness] = useState(null)
   const fileInput = useRef(null)
   const controller = useRef(null)
   const cancelled = useRef(false)
@@ -66,11 +67,12 @@ export default function App() {
   const mapDensity = residents.length >= 200 ? 'dense-map' : residents.length >= 100 ? 'compact-map' : ''
   const person = residents.find(r => r.id === selected)
   const reaction = results[selected]
-  const responseSummary = report?.headline || (mode === 'preview'
-    ? 'Run a simulation to generate a response summary.'
+  // Togetherness summary: what the simulated community actually thinks (lib/api.js runSummary).
+  const responseSummary = togetherness?.summary || (mode === 'preview'
+    ? 'Run a simulation to hear what the community thinks.'
     : running
-      ? 'Building a summary from resident and panel responses…'
-      : 'The response summary will appear when the report is ready.')
+      ? 'Listening to residents… the togetherness summary appears when the crowd finishes.'
+      : 'The togetherness summary will appear when residents have responded.')
   async function run() {
     if (!draft.trim() || running) return
     if (mode === 'live' && completed.length) setPrevious({ percentages, count: residents.length })
@@ -78,7 +80,7 @@ export default function App() {
     setResidents(people); setResults({}); setMode('live'); setError(''); setRunning(true); setSelected(0); setFilter('all'); setRunDraft(draft); setMapZoom(size >= 200 ? 0.75 : size >= 100 ? 0.9 : 1)
     cancelled.current = false
     const abort = new AbortController(); controller.current = abort
-    setPanelResults({}); setPanelText({}); setReport(null); setPhase('checking'); setHealth('checking')
+    setPanelResults({}); setPanelText({}); setReport(null); setTogetherness(null); setPhase('checking'); setHealth('checking')
     try {
       const ready = await checkOllama()
       if (abort.signal.aborted) return
@@ -90,6 +92,10 @@ export default function App() {
       }, abort.signal)
       if (abort.signal.aborted) return
       if (!crowd.some(result => result && !result.error && result.stance)) throw new Error('No resident responses were available. Please try again.')
+      setTogetherness(getQuickSummary(crowd))
+      const together = await runSummary(draft, crowd, abort.signal)
+      if (abort.signal.aborted) return
+      setTogetherness(together)
       setPhase('panel')
       const panel = await runPanel(draft,
         (id, text) => { if (!abort.signal.aborted) setPanelText(old => ({ ...old, [id]: text })) },
@@ -110,20 +116,24 @@ export default function App() {
   }
   async function pasteDraft() {
     try {
-      const text = await navigator.clipboard.readText()
-      if (text) { setDraft(text); setSample('custom') }
+      const { text, note } = prepareDraft(await navigator.clipboard.readText())
+      if (text) { setDraft(text); setSample('custom'); setError(note) }
     } catch {
       setError('Clipboard access is unavailable. Paste directly into the draft box.')
     }
   }
-  function loadDraftFile(event) {
+  async function loadDraftFile(event) {
     const file = event.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => { setDraft(String(reader.result || '')); setSample('custom') }
-    reader.readAsText(file)
     event.target.value = ''
+    if (!file) return
+    try {
+      const { text, note } = await readOrdinanceFile(file)
+      setDraft(text); setSample('custom'); setError(note)
+    } catch (err) {
+      setError(err.message)
+    }
   }
+
   return <div className="app-shell">
     <aside className="sidebar">
       <a className="brand" href="#welcome" aria-label="LawGetherness landing page" title="Back to welcome"><span className="brand-mark"><Icon name="leaf" size={27} /></span><span>LawGetherness<small>ORDINANCE WIND TUNNEL</small></span></a>
@@ -146,7 +156,7 @@ export default function App() {
                 </div>
               </div>
               <div className="draft-editor">
-                <div className="editor-heading"><label className="field-label" htmlFor="ordinance">Draft</label><div className="draft-tools"><input ref={fileInput} className="visually-hidden" type="file" accept=".txt,.md,.text" onChange={loadDraftFile} /><button type="button" className="draft-tool-button" aria-label="Add ordinance file" title="Add file" onClick={() => fileInput.current?.click()}><Icon name="paperclip" size={16} /></button><button type="button" className="draft-tool-button" aria-label="Paste ordinance text" title="Paste" onClick={pasteDraft}><Icon name="clipboard" size={16} /></button></div></div>
+                <div className="editor-heading"><label className="field-label" htmlFor="ordinance">Draft</label><div className="draft-tools"><input ref={fileInput} className="visually-hidden" type="file" accept=".txt,.md,.text,.docx,.pdf" onChange={loadDraftFile} /><button type="button" className="draft-tool-button" aria-label="Add ordinance file" title="Add file" onClick={() => fileInput.current?.click()}><Icon name="paperclip" size={16} /></button><button type="button" className="draft-tool-button" aria-label="Paste ordinance text" title="Paste" onClick={pasteDraft}><Icon name="clipboard" size={16} /></button></div></div>
                 <textarea id="ordinance" value={draft} disabled={running} onChange={e => { setDraft(e.target.value); setSample('custom') }} placeholder="Paste your draft ordinance here…" />
               </div>
               <div className="draft-below-controls">
@@ -164,7 +174,7 @@ export default function App() {
                 <div className="stat-grid">{stances.map((s, i) => <button key={s} className={`stat ${s} ${filter === s ? 'selected-stat' : ''}`} onClick={() => setFilter(filter === s ? 'all' : s)} aria-pressed={filter === s}><span><i />{s}</span><strong>{percentages[i]}<small>%</small></strong><span>{counts[i]}</span></button>)}</div>
                 <div className="stance-bar" aria-label="Distribution of simulated reactions">{stances.map((s, i) => <span key={s} className={s} style={{ flex: counts[i] || 0.001 }} />)}</div>
               </div>
-              <aside className="community-response-box" data-summary-slot="response-summary"><span className="field-label">Response summary</span><p>{responseSummary}</p></aside>
+              <aside className="community-response-box" data-summary-slot="response-summary"><span className="field-label">Togetherness summary</span><p>{togetherness?.mood && <strong>{togetherness.mood}. </strong>}{responseSummary}</p></aside>
             </div>
             {mode === 'live' && <div className="results-caption" role="status"><span>{`${completed.length} valid reactions · ${done - completed.length} unavailable`}</span><strong>{residents.length} residents</strong></div>}
             {mode === 'live' && draft !== runDraft && <p className="draft-changed">Draft edited. Run again to update these results.</p>}

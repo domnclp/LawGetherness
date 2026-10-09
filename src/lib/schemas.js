@@ -77,6 +77,14 @@ export const panelSchema = {
   required: ['life_impact', 'impact', 'stance', 'comply', 'reaction', 'loophole', 'what_would_help']
 }
 
+// Togetherness summary: what the community actually thinks, in a few sentences. The mood label is
+// chosen in code from the real split, so the model only writes the explanation.
+export const summarySchema = {
+  type: 'object',
+  properties: { summary: { type: 'string', maxLength: 600 } },
+  required: ['summary']
+}
+
 export const reportSchema = {
   type: 'object',
   properties: {
