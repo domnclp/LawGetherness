@@ -3,7 +3,7 @@
 
 import { chat, chatStream, MODEL } from './ollama.js'
 import { runPool } from './pool.js'
-import { generateCrowd } from './personas.js'
+import { generateCrowd, CROWD_MIX, JOBS } from './personas.js'
 import { PANEL } from './panel.js'
 import { SAMPLES } from './samples.js'
 import { briefSchema, crowdSchema, panelSchema, reportSchema } from './schemas.js'
@@ -13,9 +13,16 @@ import {
   REPORT_SYSTEM, reportUser, summarizeCrowd, cleanQuote
 } from './prompts.js'
 
-// 200 seeded residents (same every run). Smaller runs use the first N.
-// Each persona: { id, name, age, job, income, commute, household, purok, outlook, voice, values, details[] }
+// 200 seeded adult residents (same every run), national approximate mix. Smaller runs use
+// the first N, which are ordered to keep roughly the same mix.
+// Each persona: { id, name, age, group, job, employment, income, commute, household, purok,
+//                 outlook, voice, values, angle, details[] }
 export const PERSONAS_200 = generateCrowd(200)
+
+// Extra (additive): the mix behind PERSONAS_200, for the UI label ("National mix, approximate").
+// { label, source, groups: [{ group, count }], employment: { 'wage/salary': 79, ... } }
+// JOBS: occupation groups in display order (filter by persona.group).
+export { CROWD_MIX, JOBS }
 
 // Extra (additive): panel character info for the cards: { id, name, role, emoji, bio }.
 export const PANEL_PERSONAS = PANEL

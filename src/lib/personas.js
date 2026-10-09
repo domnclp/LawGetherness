@@ -1,5 +1,9 @@
 // Seeded crowd generator. Plain code, no AI: same seed = same residents every run,
-// so before/after comparisons are fair. The trait mix is approximate, not census data.
+// so before/after comparisons are fair.
+//
+// The 200 adults follow a NATIONAL, APPROXIMATE mix based on the PSA Labor Force Survey
+// (July 2026): 120 employed, 8 unemployed, 72 not in the labor force. Some splits are
+// estimates (marked below). Exact counts are quotas, not random draws.
 
 // mulberry32: small, fast, deterministic PRNG.
 function mulberry32(seed) {
@@ -20,24 +24,73 @@ function weighted(rng, table) {
 }
 const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)]
 
-// Occupation drives the other traits so residents make sense
-// (a tricycle driver drives a tricycle; a student is young and earns little).
-// ages: [min, max]; income/commute: weighted tables
-const OCCUPATIONS = [
-  ['tricycle driver',      12, { ages: [22, 60], income: [['below ₱10k', 6], ['₱10–25k', 4]],               commute: [['own tricycle', 1]] }],
-  ['jeepney driver',        6, { ages: [25, 62], income: [['below ₱10k', 4], ['₱10–25k', 6]],               commute: [['own jeepney', 1]] }],
-  ['market vendor',        10, { ages: [20, 65], income: [['below ₱10k', 6], ['₱10–25k', 4]],               commute: [['tricycle', 5], ['jeepney', 3], ['walking', 2]] }],
-  ['sari-sari store owner', 8, { ages: [28, 68], income: [['below ₱10k', 4], ['₱10–25k', 5], ['₱25–50k', 1]], commute: [['walking', 7], ['tricycle', 3]] }],
-  ['construction worker',   8, { ages: [18, 55], income: [['below ₱10k', 5], ['₱10–25k', 5]],               commute: [['jeepney', 5], ['motorcycle', 3], ['walking', 2]] }],
-  ['BPO agent',             7, { ages: [20, 38], income: [['₱10–25k', 5], ['₱25–50k', 5]],                  commute: [['jeepney', 4], ['motorcycle', 3], ['tricycle', 3]] }],
-  ['student',              10, { ages: [16, 23], income: [['below ₱10k', 8], ['₱10–25k', 2]],               commute: [['tricycle', 4], ['jeepney', 4], ['walking', 2]] }],
-  ['public school teacher', 5, { ages: [24, 60], income: [['₱25–50k', 8], ['₱10–25k', 2]],                  commute: [['tricycle', 4], ['motorcycle', 3], ['jeepney', 3]] }],
-  ['OFW family member',     6, { ages: [25, 65], income: [['₱25–50k', 5], ['₱10–25k', 3], ['above ₱50k', 2]], commute: [['tricycle', 5], ['private car', 3], ['jeepney', 2]] }],
-  ['senior citizen',        8, { ages: [60, 85], income: [['below ₱10k', 7], ['₱10–25k', 3]],               commute: [['tricycle', 6], ['walking', 4]] }],
-  ['fisherfolk',            5, { ages: [20, 65], income: [['below ₱10k', 8], ['₱10–25k', 2]],               commute: [['walking', 5], ['bicycle', 3], ['tricycle', 2]] }],
-  ['government employee',   5, { ages: [25, 60], income: [['₱25–50k', 6], ['₱10–25k', 3], ['above ₱50k', 1]], commute: [['motorcycle', 4], ['private car', 3], ['jeepney', 3]] }],
-  ['small business owner',  6, { ages: [28, 62], income: [['₱25–50k', 5], ['above ₱50k', 4], ['₱10–25k', 1]], commute: [['private car', 6], ['motorcycle', 4]] }]
+// ---------- The mix ----------
+// Income labels. Earners: their own monthly income. Non-earners: household income.
+const LOW = 'below ₱10k', MID = '₱10–25k', UPPER = '₱25–50k', HIGH = 'above ₱50k'
+const HH = b => `no income of their own; household earns ${b}`
+
+const W = 'wage/salary', SELF = 'self-employed', UNPAID = 'unpaid family worker', EMP = 'employer'
+const UNEMP = 'unemployed', NILF = 'not in the labor force'
+
+// [group, job, employment, count, [minAge, maxAge], income table, commute table, drives?]
+// Group counts follow the spec; the job/employment breakdown inside each group is chosen so
+// employment totals come out exactly 79 wage/salary, 33 self-employed, 6 unpaid family, 2 employers.
+const ROLES = [
+  // Farmers: 21
+  ['farmer', 'rice and vegetable farmer (own or tenant farm)', SELF, 9, [30, 68], [[LOW, 6], [MID, 4]], [['walking', 5], ['motorcycle', 3], ['tricycle', 2]]],
+  ['farmer', 'farm laborer', W, 8, [19, 60], [[LOW, 8], [MID, 2]], [['walking', 6], ['bicycle', 4]]],
+  ['farmer', 'helps on the family farm', UNPAID, 3, [18, 40], [[HH(LOW), 1]], [['walking', 1]]],
+  ['farmer', 'farm owner who hires farmhands', EMP, 1, [45, 65], [[UPPER, 1]], [['motorcycle', 1]], 'motorcycle'],
+  // Fisherfolk: 3
+  ['fisherfolk', 'fisherman with a small boat', SELF, 3, [22, 62], [[LOW, 8], [MID, 2]], [['walking', 1]]],
+  // Construction: 12
+  ['construction worker', 'construction worker', W, 12, [19, 55], [[LOW, 4], [MID, 6]], [['jeepney', 5], ['motorcycle', 3], ['walking', 2]]],
+  // Factory: 9
+  ['factory worker', 'factory worker', W, 9, [19, 50], [[MID, 8], [LOW, 2]], [['jeepney', 5], ['tricycle', 3], ['motorcycle', 2]]],
+  // Vendors / sari-sari owners / store clerks: 22
+  ['vendor / store worker', 'market vendor', SELF, 8, [22, 65], [[LOW, 6], [MID, 4]], [['tricycle', 5], ['jeepney', 3], ['walking', 2]]],
+  ['vendor / store worker', 'sari-sari store owner', SELF, 5, [30, 68], [[LOW, 4], [MID, 5], [UPPER, 1]], [['walking', 1]]],
+  ['vendor / store worker', 'store clerk', W, 6, [18, 40], [[LOW, 4], [MID, 6]], [['jeepney', 5], ['tricycle', 5]]],
+  ['vendor / store worker', 'helps in the family sari-sari store', UNPAID, 3, [18, 35], [[HH(LOW), 1]], [['walking', 1]]],
+  // Government employees: 12
+  ['government employee', 'public school teacher', W, 4, [24, 60], [[UPPER, 8], [MID, 2]], [['tricycle', 4], ['motorcycle', 3], ['jeepney', 3]]],
+  ['government employee', 'city or barangay hall staff', W, 5, [24, 60], [[MID, 5], [UPPER, 5]], [['jeepney', 4], ['motorcycle', 3], ['tricycle', 3]]],
+  ['government employee', 'police officer', W, 3, [25, 55], [[UPPER, 6], [MID, 4]], [['motorcycle', 1]]],
+  // Drivers (estimate): 11
+  ['driver', 'tricycle driver (owns the unit)', SELF, 3, [25, 62], [[LOW, 5], [MID, 5]], [['own tricycle', 1]], 'tricycle'],
+  ['driver', 'tricycle driver (pays boundary to an operator)', W, 2, [22, 60], [[LOW, 7], [MID, 3]], [['the tricycle they drive for work', 1]], 'tricycle'],
+  ['driver', 'jeepney driver', W, 3, [25, 62], [[LOW, 4], [MID, 6]], [['the jeepney they drive for work', 1]], 'jeepney'],
+  ['driver', 'delivery rider', W, 3, [20, 40], [[MID, 7], [LOW, 3]], [['own motorcycle', 1]], 'motorcycle'],
+  // Food service (estimate): 8
+  ['food service worker', 'carinderia or fast-food crew', W, 7, [18, 45], [[LOW, 5], [MID, 5]], [['jeepney', 4], ['tricycle', 4], ['walking', 2]]],
+  ['food service worker', 'small carinderia owner who hires a helper', EMP, 1, [35, 60], [[UPPER, 1]], [['walking', 1]]],
+  // Other services (estimate): 8
+  ['service worker', 'kasambahay (household helper)', W, 3, [19, 55], [[LOW, 1]], [['walking', 1]]],
+  ['service worker', 'salon stylist', W, 1, [20, 45], [[LOW, 6], [MID, 4]], [['jeepney', 1]]],
+  ['service worker', 'salon owner-stylist', SELF, 1, [25, 55], [[MID, 1]], [['walking', 1]]],
+  ['service worker', 'gadget and appliance repair technician', SELF, 2, [22, 55], [[LOW, 5], [MID, 5]], [['motorcycle', 1]], 'motorcycle'],
+  ['service worker', 'repair shop worker', W, 1, [19, 45], [[LOW, 1]], [['jeepney', 1]]],
+  // BPO / admin (estimate): 7
+  ['BPO / admin worker', 'BPO agent', W, 4, [20, 38], [[MID, 5], [UPPER, 5]], [['jeepney', 4], ['motorcycle', 3], ['tricycle', 3]]],
+  ['BPO / admin worker', 'office admin staff', W, 3, [22, 50], [[MID, 6], [UPPER, 4]], [['jeepney', 6], ['tricycle', 4]]],
+  // Health workers / professionals (estimate): 7
+  ['health worker / professional', 'nurse or barangay health worker', W, 5, [23, 58], [[MID, 4], [UPPER, 6]], [['tricycle', 4], ['jeepney', 4], ['motorcycle', 2]]],
+  ['health worker / professional', 'self-employed professional (accountant or engineer)', SELF, 2, [28, 60], [[HIGH, 6], [UPPER, 4]], [['private car', 1]], 'car'],
+  // Unemployed: 8
+  ['unemployed', 'unemployed, looking for work', UNEMP, 8, [19, 55], [[HH(LOW), 6], [HH(MID), 4]], [['walking', 5], ['jeepney', 5]]],
+  // Not in the labor force: 72 (25 / 27 / 20 split is an estimate)
+  ['student', 'college student', NILF, 25, [18, 24], [[HH(LOW), 4], [HH(MID), 4], [HH(UPPER), 2]], [['jeepney', 4], ['tricycle', 4], ['walking', 2]]],
+  ['homemaker', 'homemaker', NILF, 27, [22, 65], [[HH(LOW), 4], [HH(MID), 4], [HH(UPPER), 2]], [['walking', 5], ['tricycle', 5]]],
+  ['senior / retiree', 'senior citizen / retiree', NILF, 20, [60, 85], [['pension below ₱10k', 7], ['pension ₱10–25k', 2], [HH(LOW), 4]], [['tricycle', 6], ['walking', 4]]]
 ]
+
+// Summary of the mix for the UI. Label must say "national, approximate".
+export const CROWD_MIX = {
+  label: 'National mix, approximate',
+  source: 'Based on the PSA Labor Force Survey, July 2026 (200 adults: 120 employed, 8 unemployed, 72 not in the labor force). Some splits are estimates.',
+  groups: Object.entries(ROLES.reduce((m, r) => ((m[r[0]] = (m[r[0]] || 0) + r[3]), m), {})).map(([group, count]) => ({ group, count })),
+  employment: ROLES.reduce((m, r) => ((m[r[2]] = (m[r[2]] || 0) + r[3]), m), {})
+}
 
 const FIRST_NAMES = [
   'Rudy', 'Nena', 'Jun', 'Marites', 'Carlo', 'Liza', 'Ramon', 'Joy', 'Dodong', 'Inday',
@@ -91,57 +144,66 @@ const VALUES = [['traditional and religious', 3], ['moderate', 4], ['progressive
 
 // Everyday life details that decide whether an ordinance actually touches someone
 // (a smoking ban means little to a non-smoker; a curfew matters to parents of teens).
-// Rough rates for an urban Philippine barangay; approximate, not census data.
-function lifeDetails(rng, age, job, income, household, commute) {
+// Rough rates; approximate, not census data.
+function lifeDetails(rng, p, drives) {
   const d = []
-  if (/own tricycle|own jeepney|motorcycle|private car/.test(commute)) d.push(`drives a ${commute.replace('own ', '')} on city roads every day`)
-  if (age < 18) d.push('is a minor (under 18)')
-  if (age >= 18 && rng() < 0.22) d.push('smokes cigarettes daily')
-  if (age >= 16 && age <= 35 && rng() < 0.12) d.push('vapes')
+  const { age, job, income, household, commute, employment } = p
+  if (drives === 'tricycle' || drives === 'jeepney') d.push(`drives a ${drives} on city roads every day for work`)
+  else if (drives === 'motorcycle' || /motorcycle/.test(commute)) d.push('drives a motorcycle on city roads every day')
+  else if (drives === 'car' || /private car/.test(commute)) d.push('drives a private car on city roads every day')
+  if (rng() < 0.22) d.push('smokes cigarettes daily')
+  if (age <= 35 && rng() < 0.12) d.push('vapes')
   if (age >= 25 && age <= 60 && household >= 3 && rng() < 0.7) {
     d.push(rng() < 0.5 ? 'has a teenager (13-17) at home who goes out with friends at night' : 'has young kids in elementary school')
   }
-  const carOdds = income === 'above ₱50k' ? 0.8 : income === '₱25–50k' ? 0.35 : 0.04
-  if (rng() < carOdds) d.push(rng() < 0.6 ? 'owns a car and parks it on the street outside the house' : 'owns a car with a garage')
-  if (age >= 18 && rng() < 0.2) d.push('sometimes drinks with neighbors outside in the evening')
+  const carOdds = income.includes(HIGH) ? 0.8 : income.includes(UPPER) ? 0.35 : 0.04
+  if (drives !== 'car' && rng() < carOdds) d.push(rng() < 0.6 ? 'owns a car and parks it on the street outside the house' : 'owns a car with a garage')
+  if (rng() < 0.2) d.push('sometimes drinks with neighbors outside in the evening')
   if (rng() < 0.07) d.push('is LGBTQ+')
-  if (/vendor|sari-sari|small business/.test(job) && rng() < 0.7) d.push('hands out plastic bags to customers every day')
-  if (/small business/.test(job) && rng() < 0.4) d.push('runs a small carinderia that serves takeout with disposable spoons and containers')
-  if (/small business|sari-sari/.test(job) && rng() < 0.5) d.push('hires a few workers')
+  if (/vendor|sari-sari|store clerk/.test(job) && rng() < 0.85) d.push('hands out plastic bags to customers every day')
+  if (/carinderia owner/.test(job)) d.push('runs a small carinderia that serves takeout with disposable spoons and containers')
+  if (/carinderia or fast-food crew/.test(job)) d.push('works in food service that packs takeout in disposable containers')
+  if (employment === EMP) d.push('hires a few workers')
   if (rng() < 0.3) d.push('often orders takeout or food delivery')
   if (rng() < 0.12) d.push('sometimes drops wrappers on the street when no trash bin is nearby')
   return d
 }
 
-const occupationTable = OCCUPATIONS.map(([job, w, info]) => [{ job, ...info }, w])
-
-export function generateCrowd(n = 200, seed = 42) {
+// Builds all 200 residents, then orders them so every group is spread evenly through the
+// list: the first 50 or 100 (smaller runs) keep roughly the same national mix.
+function buildAll(seed) {
   const rng = mulberry32(seed)
-  const crowd = []
-  for (let i = 0; i < n; i++) {
-    const occ = weighted(rng, occupationTable)
-    const [lo, hi] = occ.ages
-    const age = lo + Math.floor(rng() * (hi - lo + 1))
-    const income = weighted(rng, occ.income)
-    const household = 1 + Math.floor(rng() * 7)   // 1–7 people
-    const commute = weighted(rng, occ.commute)
-    crowd.push({
-      id: i,
-      name: `${pick(rng, FIRST_NAMES)} ${pick(rng, LAST_NAMES)}`,
-      age,
-      job: occ.job,
-      income,
-      commute,
-      household,
-      purok: 1 + Math.floor(rng() * 7),           // Purok 1–7
-      outlook: weighted(rng, DISPOSITIONS),
-      voice: pick(rng, VOICES),
-      values: weighted(rng, VALUES),
-      angle: pick(rng, ANGLES),
-      details: lifeDetails(rng, age, occ.job, income, household, commute)
-    })
+  const all = []
+  for (const [group, job, employment, count, [lo, hi], incomes, commutes, drives] of ROLES) {
+    const offset = rng()
+    for (let k = 0; k < count; k++) {
+      const age = lo + Math.floor(rng() * (hi - lo + 1))
+      const p = {
+        name: `${pick(rng, FIRST_NAMES)} ${pick(rng, LAST_NAMES)}`,
+        age, group, job, employment,
+        income: weighted(rng, incomes),
+        commute: weighted(rng, commutes),
+        household: 1 + Math.floor(rng() * 7),     // 1–7 people
+        purok: 1 + Math.floor(rng() * 7),         // Purok 1–7
+        outlook: weighted(rng, DISPOSITIONS),
+        voice: pick(rng, VOICES),
+        values: weighted(rng, VALUES),
+        angle: pick(rng, ANGLES)
+      }
+      p.details = lifeDetails(rng, p, drives)
+      // Even spread: k-th of `count` sits at fraction (k + offset) / count of the list.
+      all.push({ p, key: (k + offset) / count, tie: rng() })
+    }
   }
-  return crowd
+  all.sort((a, b) => a.key - b.key || a.tie - b.tie)
+  return all.map(({ p }, id) => ({ id, ...p }))
 }
 
-export const JOBS = OCCUPATIONS.map(([job]) => job)
+const cache = new Map()
+export function generateCrowd(n = 200, seed = 42) {
+  if (!cache.has(seed)) cache.set(seed, buildAll(seed))
+  return cache.get(seed).slice(0, n)
+}
+
+// Occupation groups in display order (for filters).
+export const JOBS = [...new Set(ROLES.map(r => r[0]))]

@@ -29,7 +29,7 @@ Exemptions: ${b.exemptions}`
 
 // ---------- Crowd ----------
 
-export const CROWD_SYSTEM = `You simulate one resident of a barangay in Quezon City, Metro Manila, reacting to a city ordinance.
+export const CROWD_SYSTEM = `You simulate one adult resident of a Philippine barangay reacting to a city ordinance, as if it applied where you live.
 Think like a real person: a rule matters to you only if it touches what you actually do, own, sell, or are.
 You are told which parts of your life the ordinance touches and facts about what you do NOT do. Trust them completely; never claim a habit you do not have. Fill the fields in order:
 touches_me: "directly" = it restricts something I personally do, own, sell, or am; "indirectly" = it changes my customers, costs, family, health, neighbors, or surroundings in a way I would notice; "not really" = nothing in my day changes. Most residents are not directly touched by any one ordinance.
@@ -82,7 +82,7 @@ const DETAIL_TOPICS = [
   [/drinks with neighbors/, /drink|liquor|alcohol/, 'I do not drink outside'],
   [/LGBTQ/, /sogiesc|sexual orientation|gender|discriminat/, 'I am not LGBTQ+'],
   [/plastic bags/, /plastic|bag/, 'I do not sell anything, so I give out no bags; I only receive them when I shop'],
-  [/carinderia/, /restaurant|cutlery|disposable|single-use/, 'I do not run a restaurant or carinderia'],
+  [/carinderia|food service/, /restaurant|cutlery|disposable|single-use/, 'I do not work in a restaurant or carinderia'],
   [/hires a few workers/, /employ|hire|discriminat|workplace/, 'I do not employ anyone'],
   [/takeout|food delivery/, /restaurant|cutlery|disposable|single-use|takeout/, 'I rarely order takeout'],
   [/wrappers/, /litter|rubbish|trash|spit|waste/, 'I throw my trash in bins'],
@@ -132,7 +132,7 @@ export function crowdUser(r, brief) {
   const rel = relevantDetails(r.details, brief, r.job)
   const { yes } = rel
   const touch = factLines(rel, 'So this ordinance restricts nothing I personally do, unless my job is named in "Who must change".')
-  return `Resident: ${r.age}-year-old ${r.job}, earns ${r.income}/month, commutes by ${r.commute}, household of ${r.household}, Purok ${r.purok}.
+  return `Resident: ${r.age}-year-old ${r.job} (${r.employment}), monthly income: ${r.income}, commutes by ${r.commute}, household of ${r.household}, Purok ${r.purok}.
 ${touch}
 Values: ${r.values}. Outlook: ${r.outlook}. Voice: ${r.voice}.${yes.length ? '' : `\nMy angle on rules that don't touch me: ${r.angle}.`}
 Ordinance in plain words:
@@ -200,7 +200,7 @@ export function summarizeCrowd(crowd, results) {
     stance[r.stance]++
     comply[r.comply]++
     if (r.touches_me in touches) touches[r.touches_me]++
-    add(byJob, crowd[i].job, r)
+    add(byJob, crowd[i].group || crowd[i].job, r)
     for (const d of crowd[i].details || []) add(byDetail, d, r)
     answered.push(i)
   })
@@ -240,7 +240,7 @@ Simulated crowd: ${summary.total} residents
 Stance: ${summary.stance.support} support, ${summary.stance.mixed} mixed, ${summary.stance.oppose} oppose
 Compliance: ${summary.comply.comply} comply, ${summary.comply.partial} partial, ${summary.comply.evade} evade
 Touched: ${summary.touches.directly} directly, ${summary.touches.indirectly} indirectly, ${summary.touches['not really']} not really
-Most affected occupations:
+Most affected occupation groups:
 ${jobs}
 Most affected by life situation:
 ${details}
