@@ -62,6 +62,11 @@ export function checkBrief(brief, ordinance) {
   // The brief once wrote "shoppers can continue to purchase brown paper bags", which planted a bag-fee
   // reading in half the crowd. Anything about buying or paying is dropped.
   if (/\b(buy|purchase|pay for)\b/i.test(brief.still_allowed || '')) brief = { ...brief, still_allowed: 'not stated' }
+  // An anti-discrimination ordinance is ABOUT identity but protects people; the model flagged QC's
+  // SOGIESC ordinance as "punishes people for who they are" and the whole crowd opposed it.
+  if (brief.targets_identity && brief.legality === 'likely valid' && /discriminat/i.test(ordinance) && !/\b(banned|jail|imprison|prohibited from being)\b/i.test(ordinance)) {
+    brief = { ...brief, targets_identity: false }
+  }
   const over = penaltyOverLimit(ordinance)
   if (!over) return brief
   return {
@@ -358,6 +363,7 @@ const DETAIL_TOPICS = [
 // a small model assume harm (an asthmatic opposing a smoke ban near schools).
 const PROTECTS = [
   [/asthma/, /smok|vap|idl|exhaust|air quality/],
+  [/LGBTQ/, /anti-discrimination|discriminat/],
   [/young kids in elementary/, /school zone/]
 ]
 
