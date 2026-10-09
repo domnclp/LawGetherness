@@ -127,17 +127,47 @@ const VOICES = [
 
 // What a resident talks about when an ordinance doesn't touch them personally.
 // Without it, bystanders all repeat "we must follow it for the barangay".
+// Angles never name another sector or a relative: judges found those invite borrowed concerns
+// ("fair to vendors and drivers") and invented kids. Keep 9 entries so the seeded crowd is unchanged.
 const ANGLES = [
   'doubts it will really be enforced, or fears only the poor will be caught',
-  'thinks of a specific neighbor or relative it will hurt',
+  'names which kind of household on the street it hurts most',
   'says it is long overdue and wishes it came sooner',
   'worries it will become another source of kotong or fines',
   'thinks about the health and safety of the children in the area',
   'wants the barangay to explain it properly first before enforcing',
-  'compares it to a past ordinance that was forgotten after a month',
-  'cares whether it is fair to small earners like vendors and drivers',
-  'asks what the city will provide in return (bins, signs, parking, programs)'
+  'doubts it will be enforced past the first month',
+  'cares whether it is fair to low-income households',
+  'asks what the city will do first to make it easy to follow'
 ]
+
+// Who lives in the home, stated plainly, so the model never invents children ("my son Ben").
+// Derived from household size and the kid details; uses no randomness (the crowd stays identical).
+function livesWith(p) {
+  if (p.household === 1) return 'lives alone'
+  const others = p.household - 1
+  if (p.details.some(d => /teenager/.test(d))) return `lives with ${others} family members, including a teenager (13-17)`
+  if (p.details.some(d => /young kids/.test(d))) return `lives with ${others} family members, including young kids in elementary school`
+  if (p.group === 'student') return `lives with family (${others} others); no children of their own`
+  return `lives with ${others} other adults; no children under 18 at home`
+}
+
+// Usual working hours. Shown only for time-based ordinances (a curfew), where a parent who
+// works nights is the real story.
+const SCHEDULES = [
+  [/BPO agent/, 'works the night shift, about 10 PM to 7 AM'],
+  [/nurse|police/, 'works rotating 12-hour shifts, some at night'],
+  [/fisherman/, 'goes out fishing before dawn, about 3 AM to 9 AM'],
+  [/tricycle|jeepney/, 'drives from about 5 AM until 9 PM'],
+  [/delivery rider/, 'delivers until late at night'],
+  [/fast-food crew/, 'works shifts that sometimes end late at night'],
+  [/market vendor/, 'at the market from 4 AM until mid-afternoon'],
+  [/farm/, 'in the fields from dawn until afternoon'],
+  [/student/, 'has classes during the day'],
+  [/homemaker|senior/, 'at home most of the day'],
+  [/unemployed/, 'looks for work during the day']
+]
+const scheduleOf = job => (SCHEDULES.find(([re]) => re.test(job)) || [, 'works regular day hours'])[1]
 
 // Personal values: matter most for social ordinances (curfew, anti-discrimination).
 const VALUES = [['traditional and religious', 3], ['moderate', 4], ['progressive', 2]]
@@ -191,6 +221,8 @@ function buildAll(seed) {
         angle: pick(rng, ANGLES)
       }
       p.details = lifeDetails(rng, p, drives)
+      p.lives_with = livesWith(p)
+      p.schedule = scheduleOf(job)
       // Even spread: k-th of `count` sits at fraction (k + offset) / count of the list.
       all.push({ p, key: (k + offset) / count, tie: rng() })
     }

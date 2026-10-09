@@ -27,6 +27,7 @@ Use ONLY what the text says. If something is not stated, write "not stated". Nev
 summary: one sentence, max 25 words, what the ordinance does.
 who_must_change: up to 5 specific groups whose behavior must change or who are targeted (e.g. "smokers", "store owners", "parents of minors", "LGBTQ+ people"). Never list "residents", "everyone", or "city officials".
 what_changes: max 25 words, exactly what those people must stop or start doing, or what is done to them.
+still_allowed: max 20 words. What people may still do that a careless reader might think is banned (e.g. a ban on handing out plastic bags does not make shoppers buy plastic bags; they bring reusable bags). Give exact hours if the rule only applies at certain times. "not stated" if nothing.
 where_when: max 20 words. penalty: max 20 words. exemptions: max 25 words.
 targets_identity: true if it punishes or restricts people for WHO THEY ARE (sexual orientation, gender identity, religion, ethnicity, disability, poverty) rather than for a harmful ACT.
 rights_issues: max 30 words. Which constitutional rights or national laws it may violate, using the facts below. "None apparent" if it is an ordinary regulation.
@@ -34,6 +35,7 @@ penalty_check: max 25 words. Is the penalty within what a city may impose (max �
 public_benefit: max 20 words. The real benefit to the community, if any (health, safety, cleanliness). "None" if it only harms people.
 legality: "likely valid" for ordinary regulations of harmful acts with fair penalties; "questionable" if vague, overbroad, or the penalty seems excessive; "likely unconstitutional" if it targets identity, punishes harmless conduct, exceeds penalty limits, or violates the Bill of Rights.
 known_facts: up to 3 facts from the list below that are relevant to this ordinance, copied closely. Never invent laws, cases, or numbers. Empty if none apply.
+issues: 4 or 5 different open questions a councilor must settle before this works, each max 15 words, naming the section or exact word when possible. Cover different kinds: a vague word or missing definition, who carries the cost, a group that needs an exemption or transition time, how it is enforced (and the risk of abuse), and a part of the ordinance people overlook. Specific to THIS text.
 Facts you may use:
 ${KNOWLEDGE.map(k => '- ' + k).join('\n')}
 Answer only in the JSON schema.`
@@ -72,7 +74,7 @@ export function checkBrief(brief, ordinance) {
 export function briefText(b) {
   const head = `${b.summary}
 Who must change: ${b.who_must_change.join(', ') || 'not stated'}
-What changes: ${b.what_changes}
+What changes: ${b.what_changes}${b.still_allowed && !/^not stated/i.test(b.still_allowed) ? `\nStill allowed: ${b.still_allowed}` : ''}
 Where/when: ${b.where_when}
 Penalty: ${b.penalty}
 Exemptions: ${b.exemptions}`
@@ -111,38 +113,49 @@ comply: "comply" = follow it fully; "partial" = only when enforcers are watching
   For a rule that is wrong, I would not help enforce it; people targeted by it would evade it.
 STAY ON TOPIC: only talk about things this ordinance actually changes. You are told whether your WORK is affected.
   If my work is NOT affected, never mention my job, my cooking, my shift, my farm, my stall, or my route; react as a resident, parent, neighbor, consumer, or citizen.
-insight: plain English, max 20 words. ONE concrete point the councilor can act on, drawn from my real situation:
-  a practical problem in carrying it out, a side effect nobody intended, a group that needs an exemption or transition time,
-  a vague word that needs a definition, or a support measure that would make it work. Name who, what, and why.
-  It must be specific to THIS ordinance. Generic advice ("explain it well", "enforce it fairly", "it is good for everyone") is useless; never write it.
-  Example insights (other ordinances, form only, never copy):
-  - "Boundary drivers lose the 6-9 AM school trips; allow tricycles on the highway until 9 AM."
-  - "Vendors cannot tell where the 100-meter zone ends; paint the boundary on the road."
-  - "Most stalls have no trash bins; install bins before fining people for littering."
-quote: ONE Taglish sentence (Tagalog mixed with English, max 15 words), what I would tell a neighbor, in my voice, on the same point as my insight or effect.
-  If it touches me, say how, naming the specific thing (my cigarettes, my bags, my anak, my parking).
+insight (only when the schema asks for it): one plain English sentence, max 20 words: who is affected, what goes wrong with THIS rule for them, and one concrete fix.
+  Work from the "Insight angle" you are given and from my own situation; name the section or exact word when you can.
+  Never a generic wish any resident could say ("explain it well", "enforce it fairly", "it is good for everyone").
+FAMILY: only mention family members listed under "Home". Never give relatives names. If I live alone or have no children, never talk about my anak or apo.
+quote: ONE Taglish sentence (Tagalog mixed with English, max 15 words), what I would tell a neighbor, in my voice, on the same point as my insight or effect. Begin with the opener you are given.
+  If it touches me, say how, naming the specific thing it restricts in my life.
   If it does not touch me, do NOT say I am unaffected and do NOT say "we must follow it for the barangay"; speak from my angle instead, concretely.
   If the rule is wrong, say WHY in plain words (e.g. it punishes people for who they are, it is against the Constitution, the penalty is too harsh).
   Only mention things in MY profile; never invent a job, vehicle, habit, or family I do not have.
-  ${RESPECT} No hashtags, no emojis, no quotation marks. Do not start with "Grabe" or "Naku".
-Example quotes from different residents (tone only, never copy):
-- "Okay lang sa akin 'yan, hindi naman ako naninigarilyo."
-- "Isang kaha isang araw ako, saan na ako yoyosi ngayon?"
-- "Mabuti 'yan, para hindi na gabi-gabing gumagala anak ko."
-- "Opo, susunod po kami, pero sana may libreng eco-bag muna sa palengke."
-- "Hindi krimen ang pagkatao ng tao, labag 'yan sa Konstitusyon."
+  ${RESPECT} No hashtags, no emojis, no quotation marks.
 Answer only in the JSON schema.`
 
-// Contradiction checker: fixes blatant stance/judgment mismatches the model sometimes makes
-// (calling something a good rule while opposing it at no personal cost, or supporting an unjust rule).
+// Stance-neutral quote openers, rotated by resident. Example quotes in the prompt were copied word
+// for word ("wala naman kaming videoke" under a curfew), and without them 60% of quotes opened with
+// "Ayos lang sa akin 'yan"; a given opener keeps 200 voices varied for free.
+const OPENERS = ['Para sa akin,', 'Kung ako ang tatanungin,', 'Sa totoo lang,', 'Ang inaalala ko,', 'Ang tanong ko,',
+  'Dito sa amin,', 'Basta ako,', 'Alam mo,', 'Kung tutuusin,', 'Ang mahalaga,', 'Sa nakikita ko,', 'Simple lang,']
+
+// Last-resort label fixer, applied after the one re-ask. The quote is written after the stance,
+// so it fixes the judgment/comply labels where it can and only flips a stance for unjust rules.
 export function reconcile(r) {
   if (!r || !r.judgment) return r
-  let stance = r.stance
-  if (r.judgment === 'unfair or harmful') stance = 'oppose'
-  else if (r.judgment === 'good rule' && r.stance === 'oppose' && r.impact <= 2) stance = 'support'
-  else if (r.judgment === 'good rule but costly for me' && r.stance === 'support' && r.impact >= 4) stance = 'mixed'
-  else if (r.judgment === 'good rule but costly for me' && r.impact <= 2 && r.stance === 'mixed') stance = 'support'  // impact 1-2 is not costly
-  return stance === r.stance ? r : { ...r, stance, adjusted: true }
+  let { stance, judgment, comply } = r
+  if (judgment === 'good rule but costly for me' && r.impact <= 2) judgment = 'good rule'   // impact 1-2 names no real cost
+  if (judgment === 'unfair or harmful') stance = 'oppose'
+  else if (judgment === 'good rule' && stance === 'oppose' && r.impact <= 2) judgment = 'pointless'
+  else if (judgment === 'good rule but costly for me' && stance === 'support' && r.impact >= 4) stance = 'mixed'
+  if (r.touches_me === 'not really' && comply === 'partial' && judgment !== 'unfair or harmful') comply = 'comply'
+  const same = stance === r.stance && judgment === r.judgment && comply === r.comply
+  return same ? r : { ...r, stance, judgment, comply, adjusted: true }
+}
+
+// Cleans a field the schema cap cut short: back to the last clause break if it is near the end,
+// otherwise drop the half word and any dangling connector, then mark the cut with "…".
+const DANGLING = /\s+(and|or|the|to|of|a|for|with|ng|sa|na|at|para|pero|kasi|ang|mga|kung)$/i
+export function tidyEnd(s = '', max = 999) {
+  s = (s || '').trim()
+  if (s.length < max - 3) return s
+  const brk = Math.max(...['.', '!', '?', ',', ';'].map(c => s.lastIndexOf(c)))
+  if (brk > s.length * 0.6) return /[.!?]/.test(s[brk]) ? s.slice(0, brk + 1) : s.slice(0, brk) + '…'
+  let t = s.replace(/\s+\S*$/, '')
+  while (DANGLING.test(t)) t = t.replace(DANGLING, '')
+  return t + '…'
 }
 
 // Finds contradictions worth one re-ask. Returns a short reason, or '' if the answer is consistent.
@@ -162,21 +175,82 @@ const HABIT_CLAIMS = [
   [/pasada ko|boundary ko|tricycle ko|jeep ko|my tricycle|my jeepney/, /drives a (tricycle|jeepney)/, 'you do not drive a tricycle or jeepney for work'],
   [/tindahan ko|paninda ko|stall ko|pwesto ko|my store|my stall/, /plastic bags|carinderia/, 'you do not own a store or stall']
 ]
-const SUPPORT_TONE = /\b(tama (lang )?'?yan|maganda '?yan|buti nga|go ako|suportado|sang-ayon ako|dapat lang)\b/i
-const OPPOSE_TONE = /\b(hindi ako papayag|ayoko|labag|mali '?yan|hindi tama|tutol ako)\b/i
+const SUPPORT_TONE = /\b(tama (lang )?'?yan|maganda '?yan|buti nga|go ako|suportado|sang-ayon ako|dapat lang|sooner|long overdue|matagal na (sana|dapat))\b/i
+const OPPOSE_TONE = /\b(hindi ako papayag|ayoko|labag|mali '?yan|hindi tama|tutol ako|hindi (naman )?(siya|sila) kriminal)\b/i
 
-export function findContradiction(r, persona, brief = '') {
+// Only English/Tagalog letters and normal punctuation ("bớ" and stray Korean slipped through).
+const ODD_CHARS = /[^\x09\x0A\x0D\x20-\x7EÀ-ſ–—‘-”…₱]/
+// Misreadings the judges saw repeatedly: [ordinance pattern, answer pattern, correction].
+const MISREADS = [
+  [/plastic bags?/i, /buy (my |our )?(own )?plastic|pay (for )?(every|each|the) (plastic )?bags?|charge .{0,12}bags?|bumili ng plastic/i,
+    'the ordinance bans handing out plastic bags; nobody buys or pays for them. The change is reusable or paper bags'],
+  [/litter|rubbish/i, /(can'?t|cannot|not to|bawal|no longer) .{0,30}\b(in|into|sa) (the )?(trash )?(bins?|basurahan)/i,
+    'the ordinance bans littering in public places; putting trash in bins is what it wants'],
+  [/reserv\w*.{0,40}park/i, /(can'?t|cannot|stop|no (more|longer)|bawal) .{0,20}park(ing)?\b|(can'?t|cannot) just pull up|find (somewhere|another place) (else )?to park|can'?t leave my car|hindi na (pwede|puwede)(ng)? (mag-?)?park|park(ing)? .{0,30}hindi na (pwede|puwede)|park wherever/i,
+    'only reserving the curb (cones, chairs, signs) is banned; parking on the street is still allowed']
+]
+const TIME_WINDOW = /\d{1,2}(?::\d\d)?\s*[AP]\.?M\.?\s*(?:to|until|-|–)\s*\d{1,2}(?::\d\d)?\s*[AP]\.?M\.?/i
+const WRONG_HOURS = /after (school|class(es)?|dark|dinner|5|6)\b|pagkatapos ng (eskwela|klase|school)|until [1-8] ?PM/i
+// Invented relatives (childless residents claimed kids, most named "Ben").
+const KIN = /\b(anak ko|mga anak ko|apo ko|pamangkin ko|pinsan ko|my (younger |little )?(anak|son|daughter|kids?|children|grand(son|daughter|child|children|kids?)|apo|nephew|niece|cousins?))\b/i
+const NAMED_KIN = /\b(son|daughter|grandson|granddaughter|anak|apo|cousin|pinsan)\b,?\s+(si\s+)?[A-Z][a-z]+/
+// Words that mean "I am talking about my job", per occupation group.
+const JOB_WORDS = {
+  'vendor / store worker': /palengke|tindahan|paninda|\bbenta\b|customers?|suki|\bstall|pwesto|\bmarket\b/i,
+  driver: /pasada|pasahero|passengers?|boundary|terminal|biyahe|\bruta\b/i,
+  farmer: /bukid|\bfarm|palay|harvest|\bani\b/i,
+  fisherfolk: /\bcatch\b|bangka|laot|pangingisda/i,
+  'food service worker': /pagluluto|nagluluto|kusina|my shift|carinderia/i,
+  'construction worker': /construction|site ko|\bobra\b/i
+}
+// Speaking for another sector the ordinance doesn't touch ("sana isipin ang mga tricycle driver").
+const OTHER_SECTORS = [
+  [/jeepney drivers?|tricycle drivers?|mga driver/i, 'driver'],
+  [/\bvendors\b|tindera|nagtitinda/i, 'vendor / store worker'],
+  [/farm workers|farmers|magsasaka/i, 'farmer']
+]
+
+// Returns the first problem found (one re-ask per resident), or '' if the answer is consistent.
+// Order: broken text, misreading the rule, invented facts, off-topic job talk, label clashes, tone.
+export function findContradiction(r, persona, brief = '', affected = null, ordinanceText = '') {
   if (!r || r.error) return ''
+  const said = `${r.effect} ${r.insight || ''} ${r.quote}`
+  if (ODD_CHARS.test(said)) return 'use only English and Tagalog letters'
+  for (const [rule, misread, fix] of MISREADS) {
+    if (rule.test(ordinanceText) && misread.test(said)) return `you misread the ordinance: ${fix}`
+  }
+  const win = ordinanceText.match(TIME_WINDOW)
+  if (win && WRONG_HOURS.test(said)) return `the ordinance only covers ${win[0].trim()}, not other hours`
   if (r.touches_me === 'not really' && r.impact >= 4) return 'you said it does not really touch you, yet rated impact ' + r.impact
+  const topic = `${ordinanceText}\n${brief}`
   const lawful = /ordinary, lawful regulation/.test(brief)
-  const { protects } = relevantDetails(persona.details, brief, persona.job)
-  if (lawful && protects.length && r.stance === 'oppose') return `this ordinance protects you (${protects[0]}), yet you oppose it`
-  const said = `${r.quote} ${r.effect}`
+  const rel = relevantDetails(persona.details, topic, persona.job, persona)
+  if (lawful && rel.protects.length && r.stance === 'oppose') return `this ordinance protects you (${rel.protects[0]}), yet you oppose it`
+  const details = persona.details || []
+  const hasKids = details.some(d => /teenager|young kids|minor/.test(d))
+  if (!hasKids && (mentions(said, KIN) || NAMED_KIN.test(said))) return 'you have no children or grandchildren at home; do not invent relatives'
   for (const [claim, has, fact] of HABIT_CLAIMS) {
-    if (mentions(said, claim) && !(persona.details || []).some(d => has.test(d)) && !(has.source.includes('plastic') && /vendor|sari-sari|store/.test(persona.job))) {
+    if (mentions(said, claim) && !details.some(d => has.test(d)) && !(has.source.includes('plastic') && /vendor|sari-sari|store/.test(persona.job))) {
       return `you talked as if you have this, but ${fact}`
     }
   }
+  if (/naglalakad lang ako|wala akong sasakyan|hindi ako nagmamaneho|i don'?t (own a car|drive)/i.test(said) && details.some(d => /owns a car|drives a/.test(d))) {
+    return 'you own or drive a vehicle; do not say you walk or have none'
+  }
+  const work = workAffected(persona, affected)
+  if (work === false && !rel.yes.length && JOB_WORDS[persona.group] && mentions(said, JOB_WORDS[persona.group])) {
+    return 'your work is not affected by this ordinance; leave your job out and react as a resident'
+  }
+  if (Array.isArray(affected)) {
+    for (const [re, g] of OTHER_SECTORS) {
+      if (g !== persona.group && !affected.includes(g) && re.test(said)) return `this ordinance does not affect the work of the ${g} group; speak only about your own life`
+    }
+  }
+  if ((rel.yes.length || work === true) && r.touches_me === 'not really') {
+    return `this ordinance touches ${rel.yes[0] || 'your work as a ' + persona.job}; say how it changes your week`
+  }
+  if (r.judgment === 'unfair or harmful' && r.stance !== 'oppose') return `you judged it unfair or harmful, yet your stance is ${r.stance}`
+  if (r.judgment === 'good rule' && r.stance === 'oppose' && r.impact <= 2) return 'you called it a good rule that costs you little, yet you oppose it'
   if (!/\bpero\b|\bbut\b/i.test(r.quote)) {
     if (r.stance === 'oppose' && SUPPORT_TONE.test(r.quote)) return 'your quote sounds supportive but your stance is oppose'
     if (r.stance === 'support' && OPPOSE_TONE.test(r.quote)) return 'your quote sounds opposed but your stance is support'
@@ -186,9 +260,9 @@ export function findContradiction(r, persona, brief = '') {
 
 // Small models open most Filipino sentences with an interjection ("Ay,", "Uy,", "Naku,").
 // Strip one leading interjection and stray quote marks so the grid shows varied, clean quotes.
-const INTERJECTION = /^(ay naku|ay nako|naku|nako|ay|uy|hay|hay naku|grabe|ano ba|aba|hala|eh)\b[\s,!.…'’]*/i
+const INTERJECTION = /^(ay naku|ay nako|naku|nako|ay|uy|hay|hay naku|grabe|ano ba|aba|hala|eh|sayang naman)\b[\s,!.…'’]*/i
 export function cleanQuote(q = '') {
-  let s = q.trim().replace(/^["'‘’“”\s]+|["'‘’“”\s]+$/g, '')
+  let s = q.trim().replace(/^["'‘’“”\s]+|["'‘’“”\s,]+$/g, '').replace(/["“”]\s*,?\s*["“”]?.*$/, '').trim()
   const stripped = s.replace(INTERJECTION, '')
   if (stripped.length > 12) s = stripped.charAt(0).toUpperCase() + stripped.slice(1)
   return s
@@ -200,13 +274,19 @@ export function cleanQuote(q = '') {
 // [detail pattern, ordinance topic pattern, what to say when the resident does NOT have it].
 // The negative facts matter as much as the positive ones: told nothing, a small model
 // assumes a resident reacting to a smoking ban must be a smoker.
+// A negation may be a function of the resident's details (a parent of young kids is told the
+// curfew misses their kids, not that they have no children).
 const DETAIL_TOPICS = [
-  [/minor \(under 18\)|teenager/, /minor|curfew|under 18|discipline hours|youth/, 'I am an adult and have no teenager at home'],
+  [/minor \(under 18\)|teenager/, /minor|curfew|under 18|discipline hours|youth/,
+    d => d.some(x => /young kids/.test(x)) ? 'my kids are young and home by night; I have no teenager' : 'I have no children under 18 at home'],
   [/smokes/, /smok|cigar|tobacco/, 'I do not smoke'],
   [/vapes/, /vap/, 'I do not vape'],
-  [/young kids in elementary/, /school/, 'I have no young kids in school'],
-  [/parks it on the street/, /park|curb/, 'I do not park a car on the street'],
-  [/drives a|car with a garage/, /traffic|road|vehicle|idl|motorist|driver/, 'I do not drive; I ride as a passenger or walk'],
+  // Not bare "school": the curfew's "school activities" exemption told parents of young kids the curfew burdened them.
+  [/young kids in elementary/, /school zone|of (a |any )?schools?\b|near schools/, 'I have no young kids in school'],
+  // \bpark: "SPARK v. Quezon City" in the curfew text matched bare "park".
+  [/parks it on the street/, /\bpark(ing)?\b|\bcurb/,
+    d => d.some(x => /garage/.test(x)) ? 'I park my car in my own garage, not on the street' : 'I do not park a car on the street'],
+  [/drives a/, /traffic|idl|motorist|\bdrivers?\b|road closure|number coding/, 'I do not drive; I ride as a passenger or walk'],
   [/drinks with neighbors/, /drink|liquor|alcohol/, 'I do not drink outside'],
   [/LGBTQ/, /sogiesc|sexual orientation|gender|discriminat|lgbt|gay|lesbian|bakla|tomboy|transgender|homosexual|queer/, 'I am not LGBTQ+'],
   [/plastic bags/, /plastic|bag/, 'I do not sell anything, so I give out no bags; I only receive them when I shop'],
@@ -226,9 +306,20 @@ const PROTECTS = [
   [/young kids in elementary/, /school zone/]
 ]
 
+// Links a small model misses on its own, spelled out as a sentence: smokers never connected a
+// littering ban to their cigarette butts; night-shift parents never connected the curfew to their hours.
+// [detail pattern, ordinance topic pattern, what it means for me].
+const HOOKS = [
+  [/smokes/, /litter|spit|rubbish/i, 'I smoke daily; my cigarette butts and spitting count as littering'],
+  [/plastic bags/, /litter|rubbish/i, 'the plastic bags I hand out often end up as street litter'],
+  [/packs takeout|carinderia/, /litter|rubbish/i, 'the takeout containers we hand out often end up as street litter'],
+  [/teenager/, /parents?[\s\S]{0,200}penali/i, 'as the parent of a teenager who goes out at night, I can be penalized']
+]
+const NIGHT_WORK = /night|before dawn|late/
+
 // { yes: details this ordinance restricts or burdens, protects: details it protects,
-//   no: facts about what I do NOT do }
-export function relevantDetails(details = [], ordinanceText = '', job = '') {
+//   no: facts about what I do NOT do }. person (optional) supplies the work schedule.
+export function relevantDetails(details = [], ordinanceText = '', job = '', person = {}) {
   const text = ordinanceText.toLowerCase()
   const yes = [], no = [], protects = []
   for (const [detail, topic] of PROTECTS) {
@@ -237,10 +328,17 @@ export function relevantDetails(details = [], ordinanceText = '', job = '') {
   for (const [detail, topic, negation] of DETAIL_TOPICS) {
     if (!topic.test(text)) continue
     const mine = details.filter(d => detail.test(d) && !protects.includes(d))
+    const neg = typeof negation === 'function' ? negation(details) : negation
     if (mine.length) yes.push(...mine)
     // Sellers who don't hand out bags still sell; skip the "I do not sell" line for them.
-    else if (negation && !details.some(d => detail.test(d)) &&
-      !(negation.startsWith('I do not sell') && /vendor|sari-sari|small business|store/i.test(job))) no.push(negation)
+    else if (neg && !details.some(d => detail.test(d)) &&
+      !(neg.startsWith('I do not sell') && /vendor|sari-sari|small business|store/i.test(job))) no.push(neg)
+  }
+  for (const [detail, topic, line] of HOOKS) {
+    if (topic.test(ordinanceText) && details.some(d => detail.test(d))) yes.push(line)
+  }
+  if (/curfew|discipline hours/.test(text) && details.some(d => /teenager/.test(d)) && NIGHT_WORK.test(person.schedule || '')) {
+    yes.push(`my work hours (${person.schedule}) mean I am often not home to watch my teenager at night`)
   }
   return { yes: [...new Set(yes)], no: [...new Set(no)], protects: [...new Set(protects)] }
 }
@@ -264,9 +362,11 @@ const GROUP_TOPICS = [
   ['construction worker', /construction|building permit|demolition|scaffold/i],
   ['factory worker', /factor(y|ies)|industrial|manufactur/i],
   ['vendor / store worker', /plastic bag|\bbags?\b|vendor|\bstores?\b|retail|sari-sari|\bstalls?\b|\bmarkets?\b|\bsell(ing|ers?)?\b/i],
-  ['government employee', /enforc|tanod|police|public safety|DPOS|barangay official/i],
-  ['driver', /tricycle|jeepney|vehicle|\bdrivers?\b|motorist|traffic|idl(e|ing)|transport|\bpark(ing)?\b/i],
-  ['food service worker', /restaurant|cutlery|carinderia|disposable|single-use|eater(y|ies)|hotel|fast-food|food service/i],
+  // Not bare "enforc" or "vehicle"/"parking": "enforcement authority" in the parking rule told the
+  // teacher and the tricycle driver their work was directly affected.
+  ['government employee', /\btanod|public safety officer|DPOS|police|barangay (official|employee|staff)/i],
+  ['driver', /tricycle|jeepney|public utility|\bPUVs?\b|\bdrivers?\b|motorist|traffic|idl(e|ing)|\btransport|terminal|loading zone/i],
+  ['food service worker', /restaurant|cutlery|carinderia|disposable|single-use|eater(y|ies)|hotel|fast.food|food service/i],
   ['service worker', /salon|repair|kasambahay|household help/i],
   ['BPO / admin worker', /\bBPO\b|call cent|night shift/i],
   ['health worker / professional', /health cent|hospital|clinic|\bnurses?\b|medical/i]
@@ -283,19 +383,59 @@ export function workAffected(r, affectedGroups) {
   return affectedGroups.includes(r.group)
 }
 
-export function crowdUser(r, brief, affectedGroups = null) {
-  const rel = relevantDetails(r.details, brief, r.job)
+// Does this ordinance reach the resident's own life or work? Only these residents write an insight.
+export function isTouched(r, topicText, affectedGroups) {
+  return relevantDetails(r.details, topicText, r.job, r).yes.length > 0 || workAffected(r, affectedGroups) === true
+}
+
+// Insight kinds, used when the brief has no issues list (spreads residents across kinds of points).
+const INSIGHT_KINDS = [
+  'a group like me that needs an exemption or transition time',
+  'a practical problem I would hit following it',
+  'a word or limit in the text that is unclear for my case',
+  'a side effect on my money, time, or family',
+  'what I would need first to be able to comply'
+]
+
+// Picks the brief issue closest to this resident's stake (word overlap); otherwise rotates by k,
+// so affected residents spread across all the issues instead of repeating one.
+const words = s => new Set(String(s).toLowerCase().replace(/[^a-z0-9ñ\s]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !STOP.has(w)))
+export function pickIssue(r, issues = [], rel = { yes: [] }, k = 0) {
+  if (!issues.length) return ''
+  const mine = words(`${rel.yes.join(' ')} ${r.job} ${r.group}`)
+  const scored = issues.map((iss, i) => ({ iss, i, s: [...words(iss)].filter(w => mine.has(w)).length }))
+  const best = Math.max(...scored.map(x => x.s))
+  const pool = best > 0 ? scored.filter(x => x.s === best) : scored
+  return pool[k % pool.length].iss
+}
+
+const TIME_RULE = /curfew|discipline hours|\d{1,2}(:\d\d)?\s*[AP]\.?M/i
+
+// brief: plain-language ordinance text (briefText output), or the raw ordinance as fallback.
+// ordinanceText: the original text (topic matching uses both). issue: this resident's insight angle.
+export function crowdUser(r, brief, affectedGroups = null, ordinanceText = '', issue = '') {
+  const topic = `${ordinanceText}\n${brief}`
+  const rel = relevantDetails(r.details, topic, r.job, r)
   const work = workAffected(r, affectedGroups)
   const touched = rel.yes.length > 0 || work === true
+  const nightParent = rel.yes.some(y => y.startsWith('my work hours'))
   const workLine = work === true
     ? `My work as a ${r.job} IS directly affected by this ordinance; say how it changes my work.`
-    : work === false
+    : work === false && !nightParent
       ? `My work as a ${r.job} is NOT affected by this ordinance. Do not talk about my job; react as a resident, parent, neighbor, consumer, or citizen.`
       : ''
   const touch = factLines(rel, work === true ? '' : 'So this ordinance restricts nothing I personally do.')
-  return `Resident: ${r.age}-year-old ${r.job} (${r.employment}), monthly income: ${r.income}, commutes by ${r.commute}, household of ${r.household}, Purok ${r.purok}.
+  const home = r.lives_with ? ` Home: ${r.lives_with}.` : ` Household of ${r.household}.`
+  const hours = r.schedule && TIME_RULE.test(topic) ? ` Usual hours: ${r.schedule}.` : ''
+  // "Long overdue" is a fine angle for a lawful rule and a terrible one for an unjust one.
+  const lawful = /ordinary, lawful regulation/.test(brief)
+  const bystander = !lawful && /overdue/.test(r.angle) ? "asks whether it respects every resident's rights" : r.angle
+  const angle = touched
+    ? `\nInsight angle: ${issue ? `"${issue}"` : INSIGHT_KINDS[(r.id ?? 0) % INSIGHT_KINDS.length]}, seen from ${rel.yes[0] ? `my situation (${rel.yes[0]})` : `my work as a ${r.job}`}.`
+    : `\nMy angle on rules that don't touch me: ${bystander}.`
+  return `Resident: ${r.age}-year-old ${r.job} (${r.employment}), monthly income: ${r.income}, commutes by ${r.commute}, Purok ${r.purok}.${home}${hours}
 ${[workLine, touch].filter(Boolean).join('\n')}
-Values: ${r.values}. Outlook: ${r.outlook}. Voice: ${r.voice}.${touched ? '' : `\nMy angle on rules that don't touch me: ${r.angle}.`}
+Values: ${r.values}. Outlook: ${r.outlook}. Voice: ${r.voice}. Quote opener: "${OPENERS[(r.id ?? 0) % OPENERS.length]}"${angle}
 Ordinance in plain words:
 ${brief}`
 }
@@ -320,10 +460,24 @@ Answer only in the JSON schema.`
 export const LOOPHOLE_SYSTEM_EXTRA = `
 You are especially sharp about wording: quote the exact vague word or missing definition, and name who could exploit it.`
 
-export function panelUser(p, ordinance, brief, neighbors = '') {
+// What each panelist naturally looks for, so the 8 cards don't repeat one loophole.
+const PANEL_FOCUS = {
+  rudy: 'drivers and people who work long or late hours',
+  nena: 'market sellers, wet goods, and daily costs',
+  bea: 'how it treats young people',
+  lola: 'seniors, health, and the family at home',
+  tanod: 'how it would really be enforced on patrol, and the risk of abuse or kotong',
+  tess: 'small stores and their customers',
+  jessa: 'fairness, dignity, and discrimination',
+  atty: 'vague words, missing definitions, and who could exploit them'
+}
+
+// issue: one open question from the brief this panelist may take up.
+export function panelUser(p, ordinance, brief, neighbors = '', issue = '') {
   const facts = factLines(relevantDetails(p.details, `${brief || ''}\n${ordinance}`, p.role), 'This ordinance restricts nothing I personally do.')
+  const focus = PANEL_FOCUS[p.id] ? `\nWhat you notice first (only where it fits this ordinance): ${PANEL_FOCUS[p.id]}.${issue ? ` An open question in the text you may take up: "${issue}".` : ''}` : ''
   return `You are ${p.name}, ${p.role}. ${p.bio}
-${facts}${neighbors ? `\n${neighbors}` : ''}
+${facts}${focus}${neighbors ? `\n${neighbors}` : ''}
 Ordinance (text):
 ${ordinance}
 ${brief ? `\nIn plain words:\n${brief}` : ''}`
@@ -333,7 +487,7 @@ ${brief ? `\nIn plain words:\n${brief}` : ''}`
 
 export const REPORT_SYSTEM = `You are a legislative analyst helping a Quezon City councilor improve an ordinance.
 You get results from a SIMULATION of residents (not a real survey): stance counts, counts by occupation, compliance, a panel of detailed residents with their loopholes and suggested fixes, and sample quotes.
-Write clear, specific English for the councilor. Refer to sections of the ordinance. Build amendments from the panel's suggested fixes and loopholes.
+Write clear, specific English for the councilor. Refer to sections of the ordinance. Build amendments from the most-raised resident concerns, the open questions, and the panel's suggested fixes and loopholes; each reason says who raised it (e.g. "raised by 9 residents, mostly parents").
 If the ordinance leaves key details unstated (penalties, definitions, exemptions, enforcement), say so and propose explicit wording.
 Read the "Legal and ethical check". If the ordinance is likely unconstitutional or punishes people for who they are, the headline must say so plainly, and the first amendment must recommend withdrawing it or replacing it with a lawful alternative; do not polish an unjust rule. Cite only the facts given.
 Keep every field short: headline max 25 words, each list item max 18 words, each amendment field max 30 words.
@@ -382,11 +536,12 @@ export function summarizeCrowd(crowd, results) {
     for (const d of crowd[i].details || []) add(byDetail, d, r)
     answered.push(i)
   })
-  // Sample quotes: hardest-hit first, then spread across stances.
-  const sorted = [...answered].sort((a, b) => results[b].impact - results[a].impact)
+  // Sample quotes: hardest-hit first, then spread across stances. Skip answers whose labels were
+  // corrected after the quote was written (the quote may argue the other way).
+  const sorted = answered.filter(i => !results[i].adjusted).sort((a, b) => results[b].impact - results[a].impact)
   const picks = new Set(sorted.slice(0, 3))
   for (const s of ['support', 'mixed', 'oppose']) {
-    answered.filter(i => results[i].stance === s && !picks.has(i)).slice(0, 1).forEach(i => picks.add(i))
+    sorted.filter(i => results[i].stance === s && !picks.has(i)).slice(0, 1).forEach(i => picks.add(i))
   }
   const quotes = [...picks].slice(0, 4).map(i => `${crowd[i].job} (${results[i].stance}, impact ${results[i].impact}): "${results[i].quote}"`)
   return { total: answered.length, stance, comply, touches, byJob, byDetail, quotes }
@@ -435,12 +590,47 @@ export function neighborsDigest(personas, results) {
   const hardest = Object.entries(groups).filter(([, g]) => g.n >= 2)
     .sort((a, b) => b[1].impact / b[1].n - a[1].impact / a[1].n).slice(0, 2)
     .map(([k, g]) => `${k} (${g.oppose} of ${g.n} oppose, avg impact ${(g.impact / g.n).toFixed(1)})`)
-  const voices = ok.filter(x => x.r.touches_me !== 'not really' || x.r.stance === 'oppose')
-    .sort((a, b) => b.r.impact - a.r.impact).slice(0, 3)
+  const voices = ok.filter(x => !x.r.adjusted && (x.r.touches_me !== 'not really' || x.r.stance === 'oppose'))
+    .sort((a, b) => b.r.impact - a.r.impact).slice(0, 2)
     .map(x => `${x.p.job}: "${x.r.quote}"`)
+  const concerns = clusterInsights(personas, results, 3).map(c => `${c.text} (${c.count})`)
   return `What your neighbors said (simulated): ${pct('support')}% support, ${pct('mixed')}% mixed, ${pct('oppose')}% oppose of ${ok.length}.
-Hardest hit: ${hardest.join('; ') || 'no clear group'}.
+Hardest hit: ${hardest.join('; ') || 'no clear group'}.${concerns.length ? `\nConcerns raised (how many residents): ${concerns.join(' | ')}` : ''}
 Voices: ${voices.join(' | ')}`
+}
+
+// ---------- Insight clusters (code only) ----------
+// Many residents make the same point in different words. Grouping them turns repetition into a
+// signal for the councilor ("raised by 12 residents") instead of 12 copies of one line.
+const STOP = new Set(('the and for with that this they their from will would should could more need needs like have when what which about into only also than them some just very make sure ' +
+  'ordinance barangay city people residents resident ng sa na at ang mga ko po para pero lang yung kasi naman').split(' '))
+const jaccard = (a, b) => { let n = 0; for (const w of a) if (b.has(w)) n++; return n / (a.size + b.size - n || 1) }
+
+// Returns up to n clusters: [{ text, count, groups[], avgImpact }], most important first
+// (score = sum of impact, doubled for residents directly touched).
+export function clusterInsights(personas, results, n = 5) {
+  const clusters = []
+  results.forEach((r, i) => {
+    if (!r || r.error || !r.insight) return
+    const w = words(r.insight)
+    if (!w.size) return
+    const item = { r, p: personas[i] || {}, w }
+    let best = null, bestSim = 0
+    for (const c of clusters) { const s = jaccard(w, c.seed); if (s > bestSim) { bestSim = s; best = c } }
+    if (best && bestSim >= 0.3) best.members.push(item)
+    else clusters.push({ seed: w, members: [item] })
+  })
+  const weight = m => m.r.impact * (m.r.touches_me === 'directly' ? 2 : 1)
+  return clusters.map(c => {
+    const rep = [...c.members].sort((a, b) => weight(b) - weight(a))[0]
+    return {
+      text: rep.r.insight,
+      count: c.members.length,
+      groups: [...new Set(c.members.map(m => m.p.group || m.p.job).filter(Boolean))],
+      avgImpact: +(c.members.reduce((s, m) => s + m.r.impact, 0) / c.members.length).toFixed(1),
+      score: c.members.reduce((s, m) => s + weight(m), 0)
+    }
+  }).sort((a, b) => b.score - a.score).slice(0, n).map(({ score, ...c }) => c)
 }
 
 // ---------- Report: amendments must point at real sections ----------
@@ -486,7 +676,11 @@ function overallLine({ stance, total }) {
   return pct > 50 ? `most residents ${top.toUpperCase()} (${pct}%)` : `no majority; largest group ${top} (${pct}%)`
 }
 
-export function reportUser(ordinance, summary, panelAnswers, legalCheck = '', fairnessFlag = '') {
+// insights: clusterInsights output; issues: the brief's open questions.
+export function reportUser(ordinance, summary, panelAnswers, legalCheck = '', fairnessFlag = '', insights = [], issues = []) {
+  const concerns = insights.slice(0, 5)
+    .map(c => `- raised by ${c.count} (${c.groups.slice(0, 2).join(', ')}; avg impact ${c.avgImpact}): ${clip(c.text, 150)}`).join('\n')
+  const open = issues.slice(0, 4).map(i => '- ' + clip(i, 110)).join('\n')
   const jobs = groupLines(summary.byJob, 5)
   const details = groupLines(summary.byDetail, 4, 3)
   const panel = panelAnswers
@@ -506,7 +700,7 @@ Most affected occupation groups:
 ${jobs}
 Most affected by life situation:
 ${details}
-
+${concerns ? `\nResident concerns, grouped:\n${concerns}\n` : ''}${open ? `\nOpen questions in the text:\n${open}\n` : ''}
 Panel:
 ${panel}
 

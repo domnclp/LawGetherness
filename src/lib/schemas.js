@@ -12,6 +12,9 @@ export const briefSchema = {
     summary: { type: 'string' },
     who_must_change: { type: 'array', items: { type: 'string' }, maxItems: 5 },
     what_changes: { type: 'string' },
+    // What people may still do that a careless reader might think is banned (judges found residents
+    // reading the bag ban as a bag fee and the anti-reserving rule as a parking ban).
+    still_allowed: { type: 'string' },
     where_when: { type: 'string' },
     penalty: { type: 'string' },
     exemptions: { type: 'string' },
@@ -21,10 +24,13 @@ export const briefSchema = {
     penalty_check: { type: 'string' },
     public_benefit: { type: 'string' },
     legality: { enum: ['likely valid', 'questionable', 'likely unconstitutional'] },
-    known_facts: { type: 'array', items: { type: 'string' }, maxItems: 3 }
+    known_facts: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+    // Ordinance-specific decision points a councilor must weigh. Code hands each affected resident
+    // a different one, so 30 residents don't all repeat the same insight.
+    issues: { type: 'array', items: { type: 'string' }, maxItems: 5 }
   },
-  required: ['summary', 'who_must_change', 'what_changes', 'where_when', 'penalty', 'exemptions',
-    'targets_identity', 'rights_issues', 'penalty_check', 'public_benefit', 'legality', 'known_facts']
+  required: ['summary', 'who_must_change', 'what_changes', 'still_allowed', 'where_when', 'penalty', 'exemptions',
+    'targets_identity', 'rights_issues', 'penalty_check', 'public_benefit', 'legality', 'known_facts', 'issues']
 }
 
 // `touches_me` is a categorical first step: does this ordinance reach my actual daily life?
@@ -32,7 +38,9 @@ export const crowdSchema = {
   type: 'object',
   properties: {
     touches_me: { enum: ['directly', 'indirectly', 'not really'] },
-    effect: { type: 'string', maxLength: 90 },
+    // Ollama enforces maxLength by cutting the string (Taglish was chopped mid-word), so caps are
+    // loose; the real word limits live in the prompt and tidyEnd() cleans any cut.
+    effect: { type: 'string', maxLength: 130 },
     impact: { type: 'integer', minimum: 1, maximum: 5 },
     // Moral/practical verdict before the stance: a small model follows a stance rule far better
     // once it has committed to a short judgment (same trick as touches_me).
@@ -42,11 +50,16 @@ export const crowdSchema = {
     // One concrete, actionable point for the lawmaker (implementation problem, side effect,
     // needed exemption, missing definition, support measure). The quote is the human voice;
     // this is the part a councilor can act on.
-    insight: { type: 'string', maxLength: 140 },
-    quote: { type: 'string', maxLength: 120 }
+    insight: { type: 'string', maxLength: 170 },
+    quote: { type: 'string', maxLength: 150 }
   },
   required: ['touches_me', 'effect', 'impact', 'judgment', 'stance', 'comply', 'insight', 'quote']
 }
+
+// Residents the ordinance doesn't touch skip the insight: their generic advice drowned out the
+// affected residents' real points (and skipping it saves about 30 output tokens each).
+const { insight: _insight, ...noInsight } = crowdSchema.properties
+export const crowdSchemaNoInsight = { type: 'object', properties: noInsight, required: crowdSchema.required.filter(k => k !== 'insight') }
 
 // Same idea as the crowd: reason about life impact before picking a stance.
 export const panelSchema = {
