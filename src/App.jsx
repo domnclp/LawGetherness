@@ -1,10 +1,11 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 
-import { chat } from './lib/ollama.js'
-import { runPool } from './lib/pool.js'
-import { generateCrowd as population, JOBS as jobs } from './lib/personas.js'
-import { crowdSchema } from './lib/schemas.js'
-import { CROWD_SYSTEM, crowdUser } from './lib/prompts.js'
+import { runCrowd, runPanel, runReport, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL } from './lib/api.js'
+import PanelCards from './components/PanelCards.jsx'
+import Report from './components/Report.jsx'
+
+const population = size => PERSONAS_200.slice(0, size)
+const jobs = [...new Set(PERSONAS_200.map(person => person.job))]
 
 const samples = [
   { title: 'Tricycle access on the national highway', text: 'DRAFT ORDINANCE NO. 001\nRegulating tricycle access on the national highway\n\nSECTION 1. Purpose\nTo reduce traffic congestion and improve road safety within the barangay.\n\nSECTION 2. Restricted hours\nTricycles shall not operate on the national highway from 6:00 AM to 9:00 PM daily.\n\nSECTION 3. Enforcement\nBarangay traffic personnel shall enforce this restriction. A fine of ₱500 shall apply for each violation.\n\nSECTION 4. Effectivity\nThis ordinance shall take effect fifteen days after posting.' },
@@ -37,14 +38,21 @@ export default function App() {
   const [previous, setPrevious] = useState(null)
   const [runDraft, setRunDraft] = useState('')
   const [mapZoom, setMapZoom] = useState(1)
+  const [phase, setPhase] = useState('idle')
+  const [health, setHealth] = useState('checking')
+  const [panelResults, setPanelResults] = useState({})
+  const [panelText, setPanelText] = useState({})
+  const [report, setReport] = useState(null)
   const controller = useRef(null)
   const cancelled = useRef(false)
   useEffect(() => {
+    let mounted = true
+    checkOllama().then(ready => { if (mounted) setHealth(ready ? 'ready' : 'unavailable') }).catch(() => { if (mounted) setHealth('unavailable') })
     const update = () => setOnline(navigator.onLine)
     window.addEventListener('online', update); window.addEventListener('offline', update)
-    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); controller.current?.abort() }
+    return () => { mounted = false; window.removeEventListener('online', update); window.removeEventListener('offline', update); controller.current?.abort() }
   }, [])
-  const completed = Object.values(results).filter(r => r && !r.failed)
+  const completed = Object.values(results).filter(r => r && !r.error && stances.includes(r.stance))
   const counts = stances.map(s => completed.filter(r => r.stance === s).length)
   const percentages = counts.map(n => completed.length ? Math.round(n / completed.length * 100) : 0)
   const done = Object.keys(results).length
@@ -61,25 +69,35 @@ export default function App() {
     setResidents(people); setResults({}); setMode('live'); setError(''); setRunning(true); setSelected(0); setFilter('all'); setRunDraft(draft); setMapZoom(size >= 200 ? 0.75 : size >= 100 ? 0.9 : 1)
     cancelled.current = false
     const abort = new AbortController(); controller.current = abort
+    setPanelResults({}); setPanelText({}); setReport(null); setPhase('checking'); setHealth('checking')
     try {
-      const tasks = people.map(resident => async signal => {
-        const result = await chat({ system: CROWD_SYSTEM, user: crowdUser(resident, draft), schema: crowdSchema, signal })
-        if (!stances.includes(result.stance) || typeof result.quote !== 'string' || !Number.isInteger(result.impact) || result.impact < 1 || result.impact > 5 || !['comply', 'partial', 'evade'].includes(result.comply)) throw new Error('Invalid response')
-        return result
-      })
-      await runPool(tasks, {
-        concurrency: 2,
-        signal: abort.signal,
-        onResult: (index, result) => {
-          if (!abort.signal.aborted) setResults(old => ({ ...old, [people[index].id]: result || { failed: true } }))
-        },
-      })
+      const ready = await checkOllama()
+      if (abort.signal.aborted) return
+      setHealth(ready ? 'ready' : 'unavailable')
+      if (!ready) throw new Error(`Local AI is unavailable. Start Ollama with ${MODEL} installed, then try again.`)
+      setPhase('crowd')
+      const crowd = await runCrowd(draft, size, (_index, persona, result) => {
+        if (!abort.signal.aborted) setResults(old => ({ ...old, [persona.id]: result }))
+      }, abort.signal)
+      if (abort.signal.aborted) return
+      if (!crowd.some(result => result && !result.error && result.stance)) throw new Error('No resident responses were available. Please try again.')
+      setPhase('panel')
+      const panel = await runPanel(draft,
+        (id, text) => { if (!abort.signal.aborted) setPanelText(old => ({ ...old, [id]: text })) },
+        (id, result) => { if (!abort.signal.aborted) setPanelResults(old => ({ ...old, [id]: result })) },
+        abort.signal)
+      if (abort.signal.aborted) return
+      setPhase('report')
+      const summary = await runReport(draft, crowd, panel)
+      if (!abort.signal.aborted) setReport(summary)
     } catch (err) {
       abort.abort()
-      setError(err.message)
+      if (!cancelled.current) setError(err.message)
+    } finally {
+      if (cancelled.current) setError('Simulation stopped. Completed responses are kept below.')
+      setRunning(false)
+      setPhase('idle')
     }
-    if (cancelled.current) setError('Simulation stopped. Completed reactions are kept below.')
-    setRunning(false)
   }
   return <div className="app-shell">
     <aside className="sidebar">
@@ -91,11 +109,10 @@ export default function App() {
     <main id="workspace">
       <header className="topbar"><div>Workspace <span>/</span> <strong>Ordinance simulator</strong></div><span className="connection"><i className={`status-dot ${online ? '' : 'offline'}`} />{online ? 'Internet connected' : 'Internet disconnected'}</span></header>
       <div className="page-content">
-        <div className="page-heading"><div><div className="eyebrow">LOCAL POLICY SIMULATOR</div><h1>Test your ordinance before it becomes law.</h1><p>See possible effects across your community before filing a draft.</p></div><span className="private-tag"><Icon name="shield" size={16} /> Runs locally</span></div>
-        <p className="workflow-hint">Draft an ordinance, run a local simulation, then review the resident map.</p>
+        <div className="page-heading"><div><h1>A draft. A community. A clearer picture.</h1><p>Explore how your ordinance could affect everyday life.</p></div><span className="private-tag"><Icon name="shield" size={16} /> Runs locally</span></div>
         <div className="workspace-grid">
           <section className="card draft-card" id="draft">
-            <div className="card-heading"><span className="section-icon"><Icon name="document" /></span><div><h2>Your draft ordinance</h2><p>A starting point for a thoughtful conversation.</p></div><span className="tiny-label">01</span></div>
+            <div className="card-heading"><div><h2>Draft ordinance</h2></div></div>
             <label className="field-label" htmlFor="sample">START WITH AN EXAMPLE</label>
             <select id="sample" value={sample} disabled={running} onChange={e => { setSample(e.target.value); if (e.target.value !== 'custom') setDraft(samples[Number(e.target.value)].text) }}><option value="custom">Your own ordinance</option>{samples.map((s, i) => <option key={s.title} value={i}>{s.title}</option>)}</select>
             <div className="editor-heading"><label className="field-label" htmlFor="ordinance">ORDINANCE TEXT</label><span>Editable draft</span></div>
@@ -103,13 +120,13 @@ export default function App() {
             <div className="editor-footer"><span>Invented examples · no legal validation</span><span>{draft.length.toLocaleString()} characters</span></div>
             <div className="population-heading"><div><span className="field-label">SIMULATED COMMUNITY</span><p>Same residents. Different perspectives.</p></div><Icon name="people" /></div>
             <div className="size-options" role="group" aria-label="Number of simulated residents">{[50, 100, 200].map(n => <button key={n} disabled={running} className={size === n ? 'chosen' : ''} aria-pressed={size === n} onClick={() => setSize(n)}><strong>{n}</strong><span>residents</span>{n === 50 && <small>Quick start</small>}</button>)}</div>
-            <button className="primary-button" disabled={!draft.trim() || running} onClick={run}><Icon name="spark" size={18} />{running ? `Simulating · ${done}/${residents.length}` : 'Run simulation'}<Icon name="arrow" size={18} /></button>
-            {running && <button className="stop-button" onClick={() => { cancelled.current = true; controller.current?.abort() }}>Stop simulation</button>}
-            <p className="button-note"><Icon name="shield" size={13} /> Responses generated on your device via Ollama.</p>
+            <button className="primary-button" disabled={!draft.trim() || running} onClick={run}><Icon name="spark" size={18} />{running ? phase === 'checking' ? 'Checking local AI…' : phase === 'panel' ? 'Listening to panel…' : phase === 'report' ? 'Preparing report…' : `Simulating · ${done}/${residents.length}` : 'Run simulation'}<Icon name="arrow" size={18} /></button>
+            {running && phase !== 'report' && <button className="stop-button" onClick={() => { cancelled.current = true; controller.current?.abort() }}>Stop simulation</button>}
+            <p className="button-note"><Icon name="shield" size={13} /> {health === 'ready' ? 'Local AI ready' : health === 'checking' ? 'Checking local AI…' : `Start Ollama with ${MODEL} to run` }</p>
             {error && <div className="error-message" role="alert">{error}</div>}
           </section>
           <section className="card community-card" id="community">
-            <div className="card-heading"><span className="section-icon"><Icon name="people" /></span><div><h2>A community of perspectives</h2><p>Every person is a different simulated resident.</p></div><span className={`preview-badge ${mode === 'live' ? 'live' : ''}`}>{mode === 'preview' ? 'Sample preview' : running ? 'Running' : 'Local results'}</span></div>
+            <div className="card-heading"><div><h2>Community perspectives</h2></div><span className={`preview-badge ${mode === 'live' ? 'live' : ''}`}>{mode === 'preview' ? 'Sample preview' : running ? 'Running' : 'Local results'}</span></div>
             <div className="results-caption" role="status"><span>{mode === 'preview' ? 'Illustrative data · not generated from your draft' : `${completed.length} valid reactions · ${done - completed.length} unavailable`}</span><strong>{residents.length} residents</strong></div>
             {mode === 'live' && draft !== runDraft && <p className="draft-changed">Draft edited. Run again to update these results.</p>}
             <div className="stat-grid">{stances.map((s, i) => <button key={s} className={`stat ${s} ${filter === s ? 'selected-stat' : ''}`} onClick={() => setFilter(filter === s ? 'all' : s)} aria-pressed={filter === s}><span><i />{s}</span><strong>{percentages[i]}<small>%</small></strong><span>{counts[i]}</span></button>)}</div>
@@ -120,7 +137,7 @@ export default function App() {
               <div className="map-cluster-label">Grouped by purok</div>
               <div className="map-controls" aria-label="Map zoom controls"><button type="button" onClick={() => setMapZoom(zoom => Math.max(0.65, Number((zoom - 0.1).toFixed(2))))} disabled={mapZoom <= 0.65} aria-label="Zoom out">−</button><output aria-live="polite">{Math.round(mapZoom * 100)}%</output><button type="button" onClick={() => setMapZoom(zoom => Math.min(1.5, Number((zoom + 0.1).toFixed(2))))} disabled={mapZoom >= 1.5} aria-label="Zoom in">+</button><button type="button" className="reset-zoom" onClick={() => setMapZoom(1)}>Reset</button></div>
               <div className="map-viewport"><div className={`resident-map ${mapDensity}`} style={{ zoom: mapZoom }} aria-label="Clickable map of simulated residents">
-                {person && <aside className="resident-profile floating-profile"><span className="profile-label">SELECTED RESPONDENT</span><span className="profile-avatar">{person.name.split(' ').slice(0, 2).map(s => s[0]).join('')}</span><div className="resident-name"><strong>{person.name}</strong><span className={`stance-pill ${reaction?.stance || ''}`}>{reaction?.stance || 'Awaiting response'}</span></div><p>{person.job}<br />{person.age} years old · Purok {person.purok}</p><div className="profile-divider" /><span className="profile-label">SIMULATED RESPONSE</span><blockquote>{reaction?.quote ? `“${reaction.quote}”` : reaction?.failed ? 'This response was unavailable.' : 'Their perspective will appear when the model responds.'}</blockquote>{reaction && !reaction.failed && <small>Impact {reaction.impact}/5 · {reaction.comply === 'comply' ? 'Would comply' : reaction.comply === 'partial' ? 'Would partly comply' : 'Would evade'}</small>}<span className="profile-hint">Click another resident to compare perspectives.</span></aside>}
+                {person && <aside className="resident-profile floating-profile"><span className="profile-label">SELECTED RESPONDENT</span><span className="profile-avatar">{person.name.split(' ').slice(0, 2).map(s => s[0]).join('')}</span><div className="resident-name"><strong>{person.name}</strong><span className={`stance-pill ${reaction?.stance || ''}`}>{reaction?.stance || 'Awaiting response'}</span></div><p>{person.job}<br />{person.age} years old · Purok {person.purok}</p><div className="profile-divider" /><span className="profile-label">SIMULATED RESPONSE</span><blockquote>{reaction?.quote ? `“${reaction.quote}”` : reaction?.error ? 'This response was unavailable.' : 'Their perspective will appear when the model responds.'}</blockquote>{reaction && !reaction.error && <small>Impact {reaction.impact}/5 · {reaction.comply === 'comply' ? 'Would comply' : reaction.comply === 'partial' ? 'Would partly comply' : 'Would evade'}</small>}<span className="profile-hint">Click another resident to compare perspectives.</span></aside>}
                   {purokGroups.map(group => (
                     <section className="purok-tile" key={group.number} aria-label={`Purok ${group.number}, ${group.residents.length} simulated residents`}>
                       <h4>Purok {group.number}</h4>
@@ -141,7 +158,9 @@ export default function App() {
             </div>
           </section>
         </div>
-        {mode === 'live' && <section className="refine-section" id="insights"><div className="refine-heading"><div><div className="eyebrow">NEXT STEP</div><h2>Review, refine, and run again.</h2></div><span className="tiny-label">COMPARE RESULTS</span></div><div className="insight-grid"><article><span className="insight-number">01 / UNDERSTAND</span><h3>Look beyond the majority.</h3><p>Filter by occupation and purok to see who may face a greater burden.</p></article><article><span className="insight-number">02 / QUESTION</span><h3>Find missing details.</h3><p>Read individual reactions for concerns about access, cost, exceptions, and enforcement.</p></article><article><span className="insight-number">03 / REFINE</span><h3>Run a revision.</h3><p>{previous ? `Previous ${previous.count}-resident run: ${previous.percentages[0]}% support, ${previous.percentages[1]}% mixed, ${previous.percentages[2]}% oppose.` : 'Edit your draft, then run it again with the same community size to compare results.'}</p></article></div></section>}
+        {mode === 'live' && previous && <p className="draft-changed">Previous {previous.count}-resident run: {previous.percentages[0]}% support · {previous.percentages[1]}% mixed · {previous.percentages[2]}% oppose. Compare runs with the same community size.</p>}
+        {mode === 'live' && (phase === 'panel' || phase === 'report' || Object.keys(panelResults).length > 0 || Object.keys(panelText).length > 0) && <PanelCards personas={PANEL_PERSONAS} results={panelResults} text={panelText} running={phase === 'panel'} />}
+        {mode === 'live' && (report || phase === 'report') && <Report report={report} loading={phase === 'report'} stale={draft !== runDraft} disabled={running} onApply={amendment => { setDraft(current => `${current}\n\nPROPOSED AMENDMENT — ${amendment.clause}\n${amendment.change}`); setSample('custom'); document.getElementById('ordinance')?.focus() }} />}
         <footer className="page-footer"><span><Icon name="shield" size={16} /> Simulated reactions from a small local model, not a real survey.</span><span>Built for more thoughtful local policy.</span></footer>
       </div>
     </main>
