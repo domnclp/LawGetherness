@@ -1,0 +1,3 @@
+/* Global styles. Theme variables get filled in during the UI step. */
+* { box-sizing: border-box; }
+body { margin: 0; }
