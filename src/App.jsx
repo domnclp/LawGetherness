@@ -16,8 +16,16 @@ const preview = Object.fromEntries(population(200).map(r => [r.id, { stance: r.i
 const stances = ['support', 'mixed', 'oppose']
 
 function Icon({ name, size = 20 }) {
-  const paths = { leaf: 'M19 3C8 2 3 7 5 14c2 7 12 5 14-11ZM5 20 15 8M8 15h5', grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z', arrow: 'M5 12h14m-6-6 6 6-6 6', document: 'M14 2H5v20h14V7l-5-5Zm0 0v5h5M8 12h8M8 16h6', shield: 'M12 3 3 6v6c0 5 9 9 9 9s9-4 9-9V6l-9-3Zm-4 9 3 3 5-6', people: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m18 0v-2a4 4 0 0 0-3-4M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm7 0a4 4 0 0 1 0 8', spark: 'm12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z' }
+  const paths = { leaf: 'M19 3C8 2 3 7 5 14c2 7 12 5 14-11ZM5 20 15 8M8 15h5', grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z', arrow: 'M5 12h14m-6-6 6 6-6 6', document: 'M14 2H5v20h14V7l-5-5Zm0 0v5h5M8 12h8M8 16h6', paperclip: 'm21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48', clipboard: 'M9 5h6m-7 0H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 3h6v4H9zM8 12h8M8 16h6', shield: 'M12 3 3 6v6c0 5 9 9 9 9s9-4 9-9V6l-9-3Zm-4 9 3 3 5-6', people: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m18 0v-2a4 4 0 0 0-3-4M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm7 0a4 4 0 0 1 0 8', spark: 'm12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z' }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name] || paths.document} /></svg>
+}
+function FilterMenu({ label, value, options, onChange }) {
+  const [open, setOpen] = useState(false)
+  const current = value === 'all' ? label : value
+  return <div className="filter-menu">
+    <button type="button" className="filter-menu-trigger" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(next => !next)}>{current}<span aria-hidden="true">⌄</span></button>
+    {open && <div className="filter-menu-list" role="listbox" aria-label={label}>{['all', ...options].map(option => <button type="button" role="option" aria-selected={value === option} key={option} className={value === option ? 'chosen' : ''} onClick={() => { onChange(option); setOpen(false) }}>{option === 'all' ? label : option}</button>)}</div>}
+  </div>
 }
 export default function App() {
   const [draft, setDraft] = useState(SAMPLES[0].text)
@@ -41,6 +49,7 @@ export default function App() {
   const [panelResults, setPanelResults] = useState({})
   const [panelText, setPanelText] = useState({})
   const [report, setReport] = useState(null)
+  const fileInput = useRef(null)
   const controller = useRef(null)
   const cancelled = useRef(false)
   useEffect(() => {
@@ -57,6 +66,11 @@ export default function App() {
   const mapDensity = residents.length >= 200 ? 'dense-map' : residents.length >= 100 ? 'compact-map' : ''
   const person = residents.find(r => r.id === selected)
   const reaction = results[selected]
+  const responseSummary = report?.headline || (mode === 'preview'
+    ? 'Run a simulation to generate a response summary.'
+    : running
+      ? 'Building a summary from resident and panel responses…'
+      : 'The response summary will appear when the report is ready.')
   async function run() {
     if (!draft.trim() || running) return
     if (mode === 'live' && completed.length) setPrevious({ percentages, count: residents.length })
@@ -94,15 +108,31 @@ export default function App() {
       setPhase('idle')
     }
   }
+  async function pasteDraft() {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text) { setDraft(text); setSample('custom') }
+    } catch {
+      setError('Clipboard access is unavailable. Paste directly into the draft box.')
+    }
+  }
+  function loadDraftFile(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => { setDraft(String(reader.result || '')); setSample('custom') }
+    reader.readAsText(file)
+    event.target.value = ''
+  }
   return <div className="app-shell">
     <aside className="sidebar">
       <a className="brand" href="#welcome" aria-label="LawGetherness landing page" title="Back to welcome"><span className="brand-mark"><Icon name="leaf" size={27} /></span><span>LawGetherness<small>ORDINANCE WIND TUNNEL</small></span></a>
       <div className="workspace-label">WORKSPACE</div>
-      <nav className="rail-nav" aria-label="Workspace navigation"><a className="nav-item active" href="#workspace" aria-label="Draft ordinance" title="Draft ordinance"><Icon name="grid" /><span>Draft ordinance</span><small>01</small></a><a className="nav-item" href="#community" aria-label="Resident map" title="Resident map"><Icon name="people" /><span>Resident map</span></a><a className="nav-item" href="#insights" aria-label="Review and refine" title="Review and refine"><Icon name="spark" /><span>Review & refine</span></a></nav>
+      <nav className="rail-nav" aria-label="Workspace navigation"><a className="nav-item" href="#welcome" aria-label="Home" title="Home"><Icon name="leaf" /><span>Home</span></a><a className="nav-item active" href="#workspace" aria-label="Test a law" title="Test a law"><Icon name="grid" /><span>Test a law</span><small>01</small></a><a className="nav-item" href="#about-us" aria-label="About us" title="About us"><Icon name="spark" /><span>About us</span></a></nav>
       <div className="rail-status" title="Local inference"><Icon name="shield" size={18} /><i className="status-dot" /></div>
     </aside>
     <main id="workspace" tabIndex={-1}>
-      <header className="topbar workspace-header"><a className="workspace-wordmark" href="#welcome">Law<em>Getherness</em><small>ORDINANCE WIND TUNNEL</small></a><nav className="workspace-links" aria-label="Page sections"><a href="#draft">Draft a law</a><a href="#community">Community</a><a href="#insights">Review</a></nav></header>
+      <header className="topbar workspace-header"><a className="workspace-wordmark" href="#welcome">Law<em>Getherness</em><small>ORDINANCE WIND TUNNEL</small></a><nav className="workspace-links" aria-label="Page sections"><a href="#welcome">Home</a><a href="#draft">Test a law</a><a href="#about-us">About us</a></nav></header>
       <div className="page-content">
         <div className="workspace-grid">
           <section className="card draft-card" id="draft">
@@ -116,11 +146,11 @@ export default function App() {
                 </div>
               </div>
               <div className="draft-editor">
-                <div className="editor-heading"><label className="field-label" htmlFor="ordinance">Draft</label></div>
+                <div className="editor-heading"><label className="field-label" htmlFor="ordinance">Draft</label><div className="draft-tools"><input ref={fileInput} className="visually-hidden" type="file" accept=".txt,.md,.text" onChange={loadDraftFile} /><button type="button" className="draft-tool-button" aria-label="Add ordinance file" title="Add file" onClick={() => fileInput.current?.click()}><Icon name="paperclip" size={16} /></button><button type="button" className="draft-tool-button" aria-label="Paste ordinance text" title="Paste" onClick={pasteDraft}><Icon name="clipboard" size={16} /></button></div></div>
                 <textarea id="ordinance" value={draft} disabled={running} onChange={e => { setDraft(e.target.value); setSample('custom') }} placeholder="Paste your draft ordinance here…" />
               </div>
               <div className="draft-below-controls">
-                <div className="population-heading"><span className="field-label">Community size</span><details className="population-method"><summary>{CROWD_MIX.label}</summary><p>{CROWD_MIX.source}</p></details></div>
+                <div className="population-heading"><div className="population-title"><span className="field-label">Community size</span><button type="button" className="info-button" aria-label={`About this community mix: ${CROWD_MIX.label}`} data-tooltip={`${CROWD_MIX.label}. ${CROWD_MIX.source}`}>i</button></div></div>
                 <div className="size-run-row"><div className="size-options" role="group" aria-label="Number of simulated residents">{[50, 100, 200].map(n => <button key={n} disabled={running} className={size === n ? 'chosen' : ''} aria-label={`${n} residents`} aria-pressed={size === n} onClick={() => setSize(n)}><strong>{n}</strong></button>)}</div><button className="primary-button compact-run" aria-label="Run simulation" disabled={!draft.trim() || running} onClick={run}>{running ? `${done}/${residents.length}` : 'Run simulation'}<Icon name="arrow" size={16} /></button></div>
                 {running && phase !== 'report' && <button className="stop-button" onClick={() => { cancelled.current = true; controller.current?.abort() }}>Stop simulation</button>}
               </div>
@@ -134,19 +164,19 @@ export default function App() {
                 <div className="stat-grid">{stances.map((s, i) => <button key={s} className={`stat ${s} ${filter === s ? 'selected-stat' : ''}`} onClick={() => setFilter(filter === s ? 'all' : s)} aria-pressed={filter === s}><span><i />{s}</span><strong>{percentages[i]}<small>%</small></strong><span>{counts[i]}</span></button>)}</div>
                 <div className="stance-bar" aria-label="Distribution of simulated reactions">{stances.map((s, i) => <span key={s} className={s} style={{ flex: counts[i] || 0.001 }} />)}</div>
               </div>
-              <aside className="community-response-box"><span className="field-label">Response summary</span><p>Across {residents.length} residents: {counts[0]} support ({percentages[0]}%), {counts[1]} are mixed ({percentages[1]}%), and {counts[2]} oppose ({percentages[2]}%). Support signals a perceived benefit; mixed responses point to trade-offs; opposition highlights concerns or burdens.</p></aside>
+              <aside className="community-response-box" data-summary-slot="response-summary"><span className="field-label">Response summary</span><p>{responseSummary}</p></aside>
             </div>
             {mode === 'live' && <div className="results-caption" role="status"><span>{`${completed.length} valid reactions · ${done - completed.length} unavailable`}</span><strong>{residents.length} residents</strong></div>}
             {mode === 'live' && draft !== runDraft && <p className="draft-changed">Draft edited. Run again to update these results.</p>}
             <ResponseContext mode={mode} draft={draft} runDraft={runDraft} person={person} reaction={reaction} />
             {running && <progress aria-label="Simulation progress" max={residents.length} value={done} />}
-            <div className="grid-toolbar"><h3>Resident map <span>{visible.length}</span></h3><div><select aria-label="Filter by occupation group" value={job} onChange={e => setJob(e.target.value)}><option value="all">All occupation groups</option>{JOBS.map(group => <option key={group} value={group}>{group}</option>)}</select><select aria-label="Filter by sector" value={sector} onChange={e => setSector(e.target.value)}><option value="all">All sectors</option>{sectors.map(name => <option key={name}>{name}</option>)}</select></div></div>
+            <div className="grid-toolbar"><h3>Resident map <span>{visible.length}</span></h3><div><FilterMenu label="All occupation groups" value={job} options={JOBS} onChange={setJob} /><FilterMenu label="All sectors" value={sector} options={sectors} onChange={setSector} /></div></div>
             <div className="map-stage">
               <div className="map-cluster-label" title={CROWD_MIX.source}>Sector village · {CROWD_MIX.label}</div>
               <p className="map-source-note">{CROWD_MIX.source}</p>
               <div className="map-controls" aria-label="Map zoom controls"><button type="button" onClick={() => setMapZoom(zoom => Math.max(0.65, Number((zoom - 0.1).toFixed(2))))} disabled={mapZoom <= 0.65} aria-label="Zoom out">−</button><output aria-live="polite">{Math.round(mapZoom * 100)}%</output><button type="button" onClick={() => setMapZoom(zoom => Math.min(1.5, Number((zoom + 0.1).toFixed(2))))} disabled={mapZoom >= 1.5} aria-label="Zoom in">+</button><button type="button" className="reset-zoom" onClick={() => setMapZoom(1)}>Reset</button></div>
               <div className="map-viewport"><h3 className="map-title">Residents here</h3><div className={`resident-map sector-map ${mapDensity}`} style={{ zoom: mapZoom }} aria-label="Clickable 3D sector map of simulated residents">
-                {person && <aside className="resident-profile floating-profile"><span className="profile-label">SELECTED RESPONDENT</span><span className="profile-avatar">{person.name.split(' ').slice(0, 2).map(s => s[0]).join('')}</span><div className="resident-name"><strong>{person.name}</strong><span className={`stance-pill ${reaction?.stance || ''}`}>{reaction?.stance || 'Awaiting response'}</span></div><p>{person.job}<br />{person.age} years old · {person.sector}<br />Employment: {person.employment}</p><div className="profile-divider" /><span className="profile-label">SIMULATED RESPONSE</span><blockquote>{reaction?.quote ? `“${reaction.quote}”` : reaction?.error ? 'This response was unavailable.' : 'Their perspective will appear when the model responds.'}</blockquote>{reaction && !reaction.error && <small>Impact {reaction.impact}/5 · {reaction.comply === 'comply' ? 'Would comply' : reaction.comply === 'partial' ? 'Would partly comply' : 'Would evade'}</small>}<span className="profile-hint">Click another resident to compare perspectives.</span></aside>}
+                {person && <aside className="resident-profile floating-profile"><span className="profile-label">SELECTED RESPONDENT</span><div className="profile-identity"><span className="profile-avatar">{person.name.split(' ').slice(0, 2).map(s => s[0]).join('')}</span><span className={`stance-pill ${reaction?.stance || ''}`}>{reaction?.stance || 'Awaiting response'}</span></div><div className="resident-name"><strong>{person.name}</strong></div><p>{person.job}<br />{person.age} years old · {person.sector}<br />Employment: {person.employment}</p><div className="profile-divider" /><span className="profile-label">SIMULATED RESPONSE</span><blockquote>{reaction?.quote ? `“${reaction.quote}”` : reaction?.error ? 'This response was unavailable.' : 'Their perspective will appear when the model responds.'}</blockquote>{reaction && !reaction.error && <small>Impact {reaction.impact}/5 · {reaction.comply === 'comply' ? 'Would comply' : reaction.comply === 'partial' ? 'Would partly comply' : 'Would evade'}</small>}<span className="profile-hint">Click another resident to compare perspectives.</span></aside>}
                   {sectorGroups.map(group => (
                     <section className="purok-tile sector-tile" key={group.name} data-sector={group.name} aria-label={`${group.name}, ${group.residents.length} simulated residents`}>
                       <SectorScenery sector={group.name} />
