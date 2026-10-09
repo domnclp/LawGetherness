@@ -4,7 +4,7 @@
 // printCouncilMemo() opens the browser's print dialog (Save as PDF works too) through a hidden
 // iframe, so no popup blocker gets in the way; downloadCouncilMemo() saves the same page as .html.
 
-import { percents } from './prompts.js'
+import { percents, words, jaccard, isNone } from './prompts.js'
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 // Long model text would push the memo onto a second page; cut at a word boundary.
@@ -34,6 +34,31 @@ function hardestHit(residents, byId) {
     .sort((a, b) => b.avg - a.avg || b.n - a.n).slice(0, 4)
 }
 
+// The residents' own weighing, clustered: who they said gains and who loses, and how many said it.
+// Shows the reasoning behind the split ("drivers face fines for idling", 23 residents), not just labels.
+const overlap = (a, b) => { let k = 0; for (const x of a) if (b.has(x)) k++; return k / (Math.min(a.size, b.size) || 1) }
+function tradeoffs(reactions, key, n) {
+  const clusters = []
+  let none = 0
+  for (const r of reactions) {
+    const t = String(r[key] || '').replace(/\s+/g, ' ').trim()
+    if (!t) continue
+    if (isNone(t)) { none++; continue }
+    const w = words(t)
+    if (!w.size) continue
+    const c = clusters.find(c => jaccard(w, c.w) >= 0.3 || overlap(w, c.w) >= 0.6)
+    if (c) { c.count++; if (t.length < c.text.length && t.length > 24) c.text = t } else clusters.push({ w, text: t, count: 1 })
+  }
+  // Second pass on the representative texts: seeds worded differently can still say the same thing
+  // ("Barangay protects children's health" and "Protects children's health and air quality").
+  const merged = []
+  for (const c of clusters.sort((a, b) => b.count - a.count)) {
+    const into = merged.find(m => overlap(words(m.text), words(c.text)) >= 0.6)
+    if (into) into.count += c.count; else merged.push({ ...c })
+  }
+  return { top: merged.sort((a, b) => b.count - a.count).slice(0, n), none }
+}
+
 // data: { draft, residents: [{ id, job, ... }], results: { [id]: reaction } | reaction[], report,
 //         togetherness: { mood, summary }, source: 'saved' | 'memory' | null, model, engineVersion, date }
 export function buildMemoHtml(data) {
@@ -48,12 +73,20 @@ export function buildMemoHtml(data) {
   const [ps, pm, po] = percents([split.support, split.mixed, split.oppose])
   const [cc, cp, ce] = percents([comply.comply, comply.partial, comply.evade])
   const hit = hardestHit(residents, byId)
+  const gains = tradeoffs(reactions, 'helps', 2), losses = tradeoffs(reactions, 'hurts', 3)
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1)
+  const said = c => ` <span class="n">(${c.count} resident${c.count === 1 ? '' : 's'})</span>`
+  const named = side => side.top.map(c => `<li>${esc(clip(cap(c.text), 95))}${said(c)}</li>`).join('') || '<li class="none">None named.</li>'
+  const weighed = gains.top.length || losses.top.length ? `<h2>How residents weighed it</h2><div class="cols">
+  <div><h3>Gains they named</h3><ul>${named(gains)}</ul></div>
+  <div><h3>Losses they named</h3><ul>${named(losses)}</ul>${losses.none ? `<p class="n">${losses.none} said no one really loses.</p>` : ''}</div>
+</div>` : ''
   const withdraw = report?.verdict === 'withdraw'
   const verdict = withdraw ? 'Withdraw or rewrite: legal and ethical problems found' : 'Revise before filing'
   const list = (items, n, len) => (items || []).filter(Boolean).slice(0, n).map(x => `<li>${esc(clip(x, len))}</li>`).join('') || '<li class="none">None identified in this run.</li>'
-  const amendments = (report?.amendments || []).slice(0, 3).map(a => `<li><b>${esc(clip(a.clause, 60))}:</b> ${esc(clip(a.change, 165))}<div class="why">Why: ${esc(clip(a.reason, 120))}</div></li>`).join('')
+  const amendments = (report?.amendments || []).slice(0, 3).map(a => `<li><b>${esc(clip(a.clause, 60))}:</b> ${esc(clip(a.change, 150))}<div class="why">Why: ${esc(clip(a.reason, 105))}</div></li>`).join('')
     || '<li class="none">No amendments were returned.</li>'
-  const points = (report?.insights || []).slice(0, 3).map(c => `<li>${esc(clip(c.text, 140))} <span class="n">(${c.count} resident${c.count === 1 ? '' : 's'})</span></li>`).join('')
+  const points = (report?.insights || []).slice(0, 3).map(c => `<li>${esc(clip(c.text, 115))} <span class="n">(${c.count} resident${c.count === 1 ? '' : 's'})</span></li>`).join('')
   const hitRows = hit.map(g => `<tr><td>${esc(clip(g.job, 44))}</td><td>${g.n}</td><td>${g.avg.toFixed(1)}/5</td><td>${pct(g.oppose, g.n)}%</td></tr>`).join('')
   const runLabel = source === 'saved' ? 'saved run, computed earlier on this laptop' : source === 'memory' ? 'remembered run on this laptop' : 'live run on this laptop'
   const when = date.toLocaleString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })
@@ -66,7 +99,7 @@ export function buildMemoHtml(data) {
   * { box-sizing: border-box; }
   body { margin: 0; font: 9.2pt/1.36 "Segoe UI", Arial, sans-serif; color: #1d1d1d; background: #fff;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { max-width: 182mm; margin: 0 auto; padding: 6mm 0; }
+  .page { max-width: 182mm; margin: 0 auto; padding: 2mm 0; }
   header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1d1d1d; padding-bottom: 5px; }
   .kicker { font-size: 8pt; letter-spacing: .12em; text-transform: uppercase; color: #4b5d52; font-weight: 700; }
   .meta { font-size: 8pt; color: #555; text-align: right; }
@@ -79,7 +112,8 @@ export function buildMemoHtml(data) {
   .s { background: #2f7d55; } .m { background: #d9a62e; } .o { background: #b5473a; }
   .verdict { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 8.8pt;
     background: ${withdraw ? '#f6dcd8' : '#e7efe9'}; color: ${withdraw ? '#8a2b20' : '#24563b'}; }
-  h2 { font-size: 9pt; letter-spacing: .08em; text-transform: uppercase; margin: 10px 0 3px; color: #2b3a31; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
+  h3 { font-size: 8.8pt; margin: 3px 0 2px; color: #2b3a31; }
+  h2 { font-size: 9pt; letter-spacing: .08em; text-transform: uppercase; margin: 8px 0 3px; color: #2b3a31; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
   p { margin: 0 0 4px; }
   ul, ol { margin: 0; padding-left: 16px; }
   li { margin: 0 0 3px; }
@@ -92,7 +126,7 @@ export function buildMemoHtml(data) {
   .none { color: #777; list-style: none; margin-left: -16px; }
   footer { margin-top: 10px; padding-top: 5px; border-top: 1px solid #1d1d1d; font-size: 7.8pt; color: #444; }
   footer b { color: #1d1d1d; }
-  @media screen { body { background: #f1f1ee; } .page { background: #fff; padding: 14mm; margin: 16px auto; box-shadow: 0 1px 6px rgba(0,0,0,.15); } }
+  @media screen { body:not(.printing) { background: #f1f1ee; } body:not(.printing) .page { background: #fff; padding: 14mm; margin: 16px auto; box-shadow: 0 1px 6px rgba(0,0,0,.15); } }
 </style></head>
 <body><div class="page">
 <header><div><div class="kicker">Council memo · Draft ordinance pre-consultation brief</div></div>
@@ -102,11 +136,12 @@ export function buildMemoHtml(data) {
 <div class="stats"><span><b>${n}</b> simulated residents</span><span>Support <b>${ps}%</b></span><span>Mixed <b>${pm}%</b></span><span>Oppose <b>${po}%</b></span><span>Would comply fully <b>${cc}%</b> · partly ${cp}% · evade ${ce}%</span></div>
 <div class="bar" role="img" aria-label="Support ${ps}%, mixed ${pm}%, oppose ${po}%"><span class="s" style="width:${ps}%"></span><span class="m" style="width:${pm}%"></span><span class="o" style="width:${po}%"></span></div>
 <span class="verdict">Recommendation: ${esc(verdict)}</span>
-${togetherness?.summary ? `<h2>What residents think</h2><p>${togetherness.mood ? `<b>${esc(togetherness.mood)}.</b> ` : ''}${esc(clip(togetherness.summary, 320))}</p>` : ''}
+${togetherness?.summary ? `<h2>What residents think</h2><p>${togetherness.mood ? `<b>${esc(togetherness.mood)}.</b> ` : ''}${esc(clip(togetherness.summary, 280))}</p>` : ''}
+${weighed}
 <div class="cols">
-  <div><h2>Who is hurt most</h2><ul>${list(report?.most_affected, 4, 110)}</ul>
+  <div><h2>Who is hurt most</h2><ul>${list(report?.most_affected, 3, 110)}</ul>
   ${hitRows ? `<table><thead><tr><th>Simulated group</th><th>n</th><th>Avg impact</th><th>Oppose</th></tr></thead><tbody>${hitRows}</tbody></table>` : ''}</div>
-  <div><h2>Loopholes to close</h2><ul>${list(report?.top_loopholes, 4, 120)}</ul>
+  <div><h2>Loopholes to close</h2><ul>${list(report?.top_loopholes, 3, 120)}</ul>
   ${points ? `<h2>Points residents raised most</h2><ul>${points}</ul>` : ''}</div>
 </div>
 <h2>Recommended amendments</h2><ol>${amendments}</ol>
@@ -121,11 +156,20 @@ export function printCouncilMemo(data) {
   const frame = document.createElement('iframe')
   frame.setAttribute('aria-hidden', 'true')
   frame.setAttribute('tabindex', '-1')
-  Object.assign(frame.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0', visibility: 'hidden' })
+  // Sized to the printable A4 area (210x297 mm minus the @page margins) so the layout can be measured.
+  Object.assign(frame.style, { position: 'fixed', left: '-10000px', top: '0', width: '182mm', height: '273mm', border: '0', visibility: 'hidden' })
   document.body.appendChild(frame)
   const win = frame.contentWindow
   if (!win) { frame.remove(); return false }
   win.document.open(); win.document.write(buildMemoHtml(data)); win.document.close()
+  // One page, always: if unusually long model text makes the memo taller than the printable area,
+  // shrink the whole page to fit (never below 75%).
+  try {
+    win.document.body.classList.add('printing')
+    const page = win.document.querySelector('.page')
+    const avail = frame.clientHeight, h = page?.scrollHeight || 0
+    if (page && avail && h > avail) page.style.zoom = String(Math.max(0.75, (avail / h) * 0.98))
+  } catch { /* measuring is best-effort; print anyway */ }
   const cleanup = () => setTimeout(() => frame.remove(), 500)
   win.addEventListener('afterprint', cleanup)
   setTimeout(() => {
