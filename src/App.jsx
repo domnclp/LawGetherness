@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { runCrowd, runPanel, runReport, runSummary, getQuickSummary, getRunSource, prefetchBrief, readOrdinanceFile, prepareDraft, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
+import { runCrowd, runPanel, runReport, runSummary, getQuickSummary, getSummaryHighlights, getRunSource, prefetchBrief, readOrdinanceFile, prepareDraft, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
 import PanelCards from './components/PanelCards.jsx'
 import Report from './components/Report.jsx'
 import ResponseContext from './components/ResponseContext.jsx'
+import ResponseSummary from './components/ResponseSummary.jsx'
 import SectorScenery from './components/SectorScenery.jsx'
+import ResidentFigure from './components/ResidentFigure.jsx'
 
 const sectorNames = { farmer:'Agriculture', fisherfolk:'Fisheries', 'construction worker':'Construction', 'factory worker':'Manufacturing', 'vendor / store worker':'Trade & retail', 'government employee':'Government', driver:'Transport & delivery', 'food service worker':'Food service', 'service worker':'Other services', 'BPO / admin worker':'BPO & administration', 'health worker / professional':'Health & professional', unemployed:'Job seekers', student:'Students', homemaker:'Homemakers', 'senior / retiree':'Seniors & retirees' }
 const displayPopulation = PERSONAS_200.map(person => ({ ...person, sector:sectorNames[person.group] || person.group, employmentType:['unemployed', 'not in the labor force'].includes(person.employment) ? null : person.employment, laborForceStatus:person.employment === 'unemployed' ? 'unemployed' : person.employment === 'not in the labor force' ? 'not in labor force' : 'employed' }))
@@ -50,6 +52,7 @@ export default function App() {
   const [panelText, setPanelText] = useState({})
   const [report, setReport] = useState(null)
   const [togetherness, setTogetherness] = useState(null)
+  const [highlights, setHighlights] = useState(null)   // { top_benefit, top_concern } for the summary card
   const [runSource, setRunSource] = useState(null)   // 'saved' | 'memory' | null (live), from lib/api.js getRunSource
   const fileInput = useRef(null)
   const controller = useRef(null)
@@ -69,7 +72,9 @@ export default function App() {
   const percentages = counts.map(n => completed.length ? Math.round(n / completed.length * 100) : 0)
   const done = Object.keys(results).length
   const visible = residents.filter(r => (filter === 'all' || results[r.id]?.stance === filter) && (job === 'all' || r.group === job) && (sector === 'all' || r.sector === sector))
-  const sectorGroups = sectors.map(name => ({ name, residents: visible.filter(resident => resident.sector === name) })).filter(group => group.residents.length)
+  const sectorGroups = sectors.map(name => ({ name, residents: visible.filter(resident => resident.sector === name) }))
+    .filter(group => group.residents.length)
+    .sort((a, b) => b.residents.length - a.residents.length || sectors.indexOf(a.name) - sectors.indexOf(b.name))
   const mapDensity = residents.length >= 200 ? 'dense-map' : residents.length >= 100 ? 'compact-map' : ''
   const person = residents.find(r => r.id === selected)
   const reaction = results[selected]
@@ -86,7 +91,7 @@ export default function App() {
     setResidents(people); setResults({}); setMode('live'); setError(''); setRunning(true); setSelected(0); setFilter('all'); setRunDraft(draft); setMapZoom(size >= 200 ? 0.75 : size >= 100 ? 0.9 : 1)
     cancelled.current = false
     const abort = new AbortController(); controller.current = abort
-    setPanelResults({}); setPanelText({}); setReport(null); setTogetherness(null); setRunSource(null); setPhase('checking'); setHealth('checking')
+    setPanelResults({}); setPanelText({}); setReport(null); setTogetherness(null); setHighlights(null); setRunSource(null); setPhase('checking'); setHealth('checking')
     try {
       const source = await getRunSource(draft, size)
       setRunSource(source)
@@ -104,6 +109,7 @@ export default function App() {
       const together = await runSummary(draft, crowd, abort.signal)
       if (abort.signal.aborted) return
       setTogetherness(together)
+      setHighlights(await getSummaryHighlights(draft, crowd))
       setPhase('panel')
       const panel = await runPanel(draft,
         (id, text) => { if (!abort.signal.aborted) setPanelText(old => ({ ...old, [id]: text })) },
@@ -182,7 +188,7 @@ export default function App() {
                 <div className="stat-grid">{stances.map((s, i) => <button key={s} className={`stat ${s} ${filter === s ? 'selected-stat' : ''}`} onClick={() => setFilter(filter === s ? 'all' : s)} aria-pressed={filter === s}><span><i />{s}</span><strong>{percentages[i]}<small>%</small></strong><span>{counts[i]}</span></button>)}</div>
                 <div className="stance-bar" aria-label="Distribution of simulated reactions">{stances.map((s, i) => <span key={s} className={s} style={{ flex: counts[i] || 0.001 }} />)}</div>
               </div>
-              <aside className="community-response-box" data-summary-slot="response-summary"><span className="field-label">Togetherness summary</span><p>{togetherness?.mood && <strong>{togetherness.mood}. </strong>}{responseSummary}</p></aside>
+              <ResponseSummary report={report ? { ...report, response_summary: highlights || undefined } : (highlights ? { response_summary: highlights } : null)} sentiment={togetherness?.mood ? `${togetherness.mood}. ${responseSummary}` : responseSummary} />
             </div>
             {mode === 'live' && <div className="results-caption" role="status"><span>{`${completed.length} valid reactions · ${done - completed.length} unavailable`}{runSource === 'saved' ? ' · Saved run, computed earlier on this laptop' : runSource === 'memory' ? ' · Remembered from an earlier run of this draft' : ''}</span><strong>{residents.length} residents</strong></div>}
             {mode === 'live' && draft !== runDraft && <p className="draft-changed">Draft edited. Run again to update these results.</p>}
@@ -194,7 +200,7 @@ export default function App() {
               <p className="map-source-note">{CROWD_MIX.source}</p>
               <div className="map-controls" aria-label="Map zoom controls"><button type="button" onClick={() => setMapZoom(zoom => Math.max(0.65, Number((zoom - 0.1).toFixed(2))))} disabled={mapZoom <= 0.65} aria-label="Zoom out">−</button><output aria-live="polite">{Math.round(mapZoom * 100)}%</output><button type="button" onClick={() => setMapZoom(zoom => Math.min(1.5, Number((zoom + 0.1).toFixed(2))))} disabled={mapZoom >= 1.5} aria-label="Zoom in">+</button><button type="button" className="reset-zoom" onClick={() => setMapZoom(1)}>Reset</button></div>
               <div className="map-viewport"><h3 className="map-title">Residents here</h3><div className={`resident-map sector-map ${mapDensity}`} style={{ zoom: mapZoom }} aria-label="Clickable 3D sector map of simulated residents">
-                {person && <aside className="resident-profile floating-profile"><span className="profile-label">SELECTED RESPONDENT</span><div className="profile-identity"><span className="profile-avatar">{person.name.split(' ').slice(0, 2).map(s => s[0]).join('')}</span><span className={`stance-pill ${reaction?.stance || ''}`}>{reaction?.stance || 'Awaiting response'}</span></div><div className="resident-name"><strong>{person.name}</strong></div><p>{person.job}<br />{person.age} years old · {person.sector}<br />Employment: {person.employment}</p><div className="profile-divider" /><span className="profile-label">SIMULATED RESPONSE</span><blockquote>{reaction?.quote ? `“${reaction.quote}”` : reaction?.error ? 'This response was unavailable.' : 'Their perspective will appear when the model responds.'}</blockquote>{reaction && !reaction.error && <small>Impact {reaction.impact}/5 · {reaction.comply === 'comply' ? 'Would comply' : reaction.comply === 'partial' ? 'Would partly comply' : 'Would evade'}</small>}<span className="profile-hint">Click another resident to compare perspectives.</span></aside>}
+                {person && <aside className="resident-profile floating-profile"><span className="profile-label">SELECTED RESPONDENT</span><div className="profile-identity"><span className="profile-avatar">{person.name.split(' ').slice(0, 2).map(s => s[0]).join('')}</span><span className={`stance-pill ${reaction?.stance || ''}`}>{reaction?.stance || 'Awaiting response'}</span></div><div className="resident-name"><strong>{person.name}</strong></div><p>{person.job}<br />{person.age} years old · {person.sector}<br />Gender: {person.gender || 'Not specified'}<br />Employment: {person.employment}</p><div className="profile-divider" /><span className="profile-label">SIMULATED RESPONSE</span><blockquote>{reaction?.quote ? `“${reaction.quote}”` : reaction?.error ? 'This response was unavailable.' : 'Their perspective will appear when the model responds.'}</blockquote>{reaction && !reaction.error && <small>Impact {reaction.impact}/5 · {reaction.comply === 'comply' ? 'Would comply' : reaction.comply === 'partial' ? 'Would partly comply' : 'Would evade'}</small>}<span className="profile-hint">Click another resident to compare perspectives.</span></aside>}
                   {sectorGroups.map(group => (
                     <section className="purok-tile sector-tile" key={group.name} data-sector={group.name} aria-label={`${group.name}, ${group.residents.length} simulated residents`}>
                       <SectorScenery sector={group.name} />
@@ -204,7 +210,7 @@ export default function App() {
                       <div className="purok-residents">
                         {group.residents.map(r => (
                             <button key={r.id} className={`map-resident ${results[r.id]?.stance || 'pending'} ${selected === r.id ? 'selected-resident' : ''}`} aria-label={`${r.name}, ${r.job}, ${results[r.id]?.stance || 'no response'}. Select to read their response.`} aria-pressed={selected === r.id} title={`${r.name} · ${r.job} · ${r.sector}`} onClick={() => setSelected(r.id)}>
-                            <span className="map-person"><i className="person-head" /><i className="person-body" /></span>
+                            <span className="map-person">{r.sector === 'Agriculture' ? <><i className="person-head" /><i className="person-body" /></> : <ResidentFigure sector={r.sector} id={r.id} />}</span>
                           </button>
                         ))}
                       </div>

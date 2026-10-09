@@ -371,6 +371,21 @@ export async function runSummary(ordinanceText, crowdResults, signal) {
   }
 }
 
+// Extra (additive): highlights for the summary card, computed in code (no model call), so cached and
+// saved runs get them too. { top_benefit, top_concern } or null; top_concern is the residents'
+// most-raised point when there is one.
+export async function getSummaryHighlights(ordinanceText, crowdResults) {
+  const reactions = Array.from(crowdResults, x => { const r = x?.reaction ?? x; return r && !r.error && r.stance ? r : null })
+  let brief = null
+  try { brief = await getBrief(ordinanceText) } catch { /* no brief: benefit stays empty */ }
+  const top = clusterInsights(PERSONAS_200.slice(0, reactions.length), reactions, 1)[0]
+  const benefit = brief?.public_benefit && !/^\s*(none|not stated)/i.test(brief.public_benefit) ? brief.public_benefit : ''
+  return {
+    top_benefit: benefit,
+    top_concern: top ? `${top.text.replace(/\.$/, '')} (raised by ${top.count} ${top.count === 1 ? 'resident' : 'residents'})` : ''
+  }
+}
+
 // Extra (additive): attach-file and paste helpers for the draft box (see extract.js).
 // readOrdinanceFile(file) -> { text, note }; prepareDraft(text) -> { text, note }.
 export { readOrdinanceFile, prepareDraft } from './extract.js'
