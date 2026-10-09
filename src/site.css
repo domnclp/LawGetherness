@@ -30,6 +30,31 @@ body:has(.landing-page) { padding:0; background:#242722; }
 .landing-section em { font-weight:400; }
 .landing-editorial-grid { display:grid; grid-template-columns:1.15fr 1fr; gap:8vw; }
 .landing-prose p, .landing-steps p { font:400 16px/1.85 'Segoe UI', Arial, sans-serif; margin:0 0 20px; max-width:580px; }
+.landing-documentary { margin:0; min-width:0; }
+.landing-photo-story { position:relative; isolation:isolate; color:#fffaf0; min-height:600px; display:flex; align-items:center; }
+.landing-story-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:-2; }
+.landing-photo-story:before { content:''; position:absolute; inset:0; background:linear-gradient(180deg, #172015a6, #11190fe6); z-index:-1; }
+.landing-story-content { width:100%; padding:clamp(28px, 4vw, 64px); }
+.landing-photo-story .landing-steps { gap:28px; }
+.landing-photo-story .landing-steps li { padding-top:0; }
+.landing-photo-story .landing-steps p { color:#f3efe4; }
+.landing-closing-photo { min-height:500px; margin-top:56px; }
+.landing-closing-photo:before { background:linear-gradient(90deg, #172015ce, #17201555); }
+.landing-closing-photo p { font:400 clamp(34px, 4vw, 58px)/1.2 Georgia, 'Times New Roman', serif; margin:0; }
+@media (max-width:700px) {
+  .landing-photo-story { min-height:0; }
+  .landing-closing-photo { min-height:360px; }
+}
+.landing-documentary img { display:block; width:100%; height:auto; aspect-ratio:3 / 2; object-fit:contain; }
+.landing-documentary figcaption { font:11px/1.8 'Segoe UI', Arial, sans-serif; letter-spacing:.3px; margin-top:14px; opacity:.8; }
+.landing-documentary-wide { margin-top:56px; }
+.landing-photo-pair { display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:50px; align-items:start; }
+.landing-photo-pair .landing-documentary:last-child { margin-top:65px; }
+@media (max-width:700px) {
+  .landing-photo-pair { grid-template-columns:minmax(0, 1fr); gap:28px; margin-top:30px; }
+  .landing-photo-pair .landing-documentary:last-child { margin-top:0; }
+  .landing-documentary-wide { margin-top:32px; }
+}
 .landing-text-link { display:inline-flex; gap:24px; font-size:12px; border-bottom:1px solid #929a7d; padding-bottom:8px; margin-top:12px; }
 .landing-text-link:hover { color:#65752f; }
 .landing-steps { list-style:none; padding:0; margin:50px 0 0; display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:32px; }
@@ -282,6 +307,58 @@ body:has(.app-shell) { padding:0; background:#f2ede2; }
 .landing-ai { background:linear-gradient(#e3e1d4, #34382d 90px); padding-top:150px; }
 @media (max-width:700px) {
   .landing-ai { padding-top:120px; }
+}
+.sample-source { display:grid; gap:5px; margin:12px 0 0; font:12px/1.7 'Segoe UI', Arial, sans-serif; color:#645d4f; }
+.sample-source a { color:#48561a; text-decoration:underline; text-underline-offset:3px; width:fit-content; }
+.population-method { margin-top:12px; font:13px/1.7 'Segoe UI', Arial, sans-serif; color:#645d4f; }
+.population-method summary { cursor:pointer; color:#48561a; }
+.population-method a { text-decoration:underline; text-underline-offset:3px; }
+.app-shell .sector-map, .app-shell .sector-map:has(.floating-profile) {
+  background:radial-gradient(ellipse at top, #e5e9dc, #d3dcc9);
+  grid-template-columns:repeat(2, minmax(190px, 1fr));
+  gap:40px 24px;
+  padding:28px 24px 50px 250px;
+  min-width:760px;
+  align-items:start;
+  perspective:1200px;
+}
+.app-shell .sector-map .floating-profile { min-height:0; width:210px; box-shadow:0 12px 30px #35402720; }
+.app-shell .sector-tile {
+  --sector-top:#e8eddf;
+  --sector-edge:#819970;
+  min-height:260px;
+  padding:20px 18px 26px;
+  border-radius:18px;
+  background:var(--sector-top);
+  box-shadow:0 9px 0 var(--sector-edge), 0 18px 24px #37452e25;
+  transform:rotateX(9deg) rotateZ(-2deg);
+  transform-style:preserve-3d;
+  transition:transform .4s ease, box-shadow .4s ease;
+}
+.app-shell .sector-tile:before, .app-shell .sector-tile:after { display:none; }
+.app-shell .sector-tile:hover, .app-shell .sector-tile:focus-within { transform:rotateX(0) rotateZ(0) translateY(-7px); box-shadow:0 12px 0 var(--sector-edge), 0 25px 28px #37452e30; z-index:5; }
+.app-shell .sector-tile h4 { color:#38452f; font:600 14px/1.4 'Segoe UI', Arial, sans-serif; text-align:center; }
+.app-shell .sector-tile .purok-count { color:#5b684e; text-align:center; margin-bottom:12px; }
+.sector-scenery { display:block; width:110px; height:65px; margin:0 auto 6px; color:#63794f; }
+.app-shell .sector-tile .purok-residents { position:relative; inset:auto; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:6px 3px; transform:none; }
+.app-shell .sector-tile .map-resident { min-height:40px; height:40px; }
+.app-shell .sector-tile .map-person { filter:drop-shadow(3px 4px 1px #3c4d3325); }
+.app-shell .sector-tile .person-body { box-shadow:inset -5px 0 #0002; }
+.app-shell .sector-tile .group-popover { bottom:-4px; }
+.app-shell .sector-tile[data-sector="Fisheries"] { --sector-top:#deeeed; --sector-edge:#729b9a; }
+.app-shell .sector-tile[data-sector="Construction"], .app-shell .sector-tile[data-sector="Manufacturing"] { --sector-top:#f0e5d4; --sector-edge:#b39a75; }
+.app-shell .sector-tile[data-sector="Trade & retail"], .app-shell .sector-tile[data-sector="Food service"] { --sector-top:#f1e0d7; --sector-edge:#b99580; }
+.app-shell .sector-tile[data-sector="Government"], .app-shell .sector-tile[data-sector="BPO & administration"] { --sector-top:#e2e5ed; --sector-edge:#8e99b0; }
+.app-shell .sector-tile[data-sector="Health & professional"] { --sector-top:#e0efea; --sector-edge:#83a797; }
+.app-shell .sector-tile[data-sector="Students"] { --sector-top:#e9e1ed; --sector-edge:#a28eab; }
+.app-shell .sector-tile[data-sector="Homemakers"], .app-shell .sector-tile[data-sector="Seniors & retirees"] { --sector-top:#efe8d7; --sector-edge:#b0a27c; }
+@media (max-width:700px) {
+  .app-shell .sector-map, .app-shell .sector-map:has(.floating-profile) { min-width:0; grid-template-columns:minmax(0, 1fr); padding:16px 16px 40px; gap:28px; }
+  .app-shell .sector-map .floating-profile { position:relative; width:auto; top:auto; left:auto; grid-column:1 / -1; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .app-shell .sector-tile { transition:none; }
+  .app-shell .sector-tile:hover, .app-shell .sector-tile:focus-within { transform:rotateX(9deg) rotateZ(-2deg); }
 }
 @keyframes workspace-arrive {
   from { opacity:0; transform:translateY(8px); }

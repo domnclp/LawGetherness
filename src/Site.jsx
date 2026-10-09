@@ -44,6 +44,9 @@ export default function Site() {
       </div>
     </section>
     <section className="landing-process landing-section" id="how-it-works" aria-labelledby="process-title">
+      <div className="landing-photo-story">
+      <img className="landing-story-photo" src="/images/DSCF0102.jpg" alt="Black-and-white photograph of people marching with public-policy protest signs" width="1920" height="1280" loading="lazy" decoding="async" />
+      <div className="landing-story-content">
       <p className="landing-kicker">HOW IT WORKS</p>
       <h2 id="process-title">Your draft. A few new perspectives.<br /><em>A more thoughtful next step.</em></h2>
       <ol className="landing-steps">
@@ -52,6 +55,12 @@ export default function Site() {
         <li><span className="landing-step-number">03 / LISTEN</span><h3>Look a little deeper.</h3><p>A simulated panel explores effects on daily life and possible loopholes, adding context to the community reactions.</p></li>
         <li><span className="landing-step-number">04 / REFINE</span><h3>Give the draft another pass.</h3><p>Review the report’s affected groups, potential loopholes, and suggested amendments. Add a suggestion to your draft and run it again.</p></li>
       </ol>
+      </div>
+      </div>
+      <div className="landing-photo-pair">
+        <figure className="landing-documentary"><img src="/images/DSCF0279.jpg" alt="People gathered on a Manila street, with a central placard reading Para sa Bayan" width="1920" height="1280" loading="lazy" decoding="async" /><figcaption>Make space for the people a proposal could affect.</figcaption></figure>
+        <figure className="landing-documentary"><img src="/images/DSCF0312.jpg" alt="A demonstrator holding a handwritten sign about capitalism, corruption, and greed" width="1920" height="1280" loading="lazy" decoding="async" /><figcaption>Listen for concerns. Ask better questions.</figcaption></figure>
+      </div>
     </section>
     <section className="landing-ai landing-section" id="local-ai" aria-labelledby="ai-title">
       <p className="landing-kicker">POWERED BY LOCAL AI</p>
@@ -59,7 +68,11 @@ export default function Site() {
         <h2 id="ai-title">A place to explore.<br /><em>Powered on your machine.</em></h2>
         <div className="landing-prose"><p>The simulation uses Ollama to run a language model locally. Start Ollama with the project’s gemma3:4b model installed before running a simulation; the workspace checks whether it is ready.</p><p>Once the app and model are set up, inference can run without an internet connection. Your draft is processed by the configured local Ollama service.</p><p className="landing-ai-note">These are AI-generated perspectives from fictional residents, not real survey responses or legal validation. Use them to raise questions and support conversations with your actual community.</p></div>
       </div>
-      <div className="landing-closing"><p>Better questions start<br />with a little <em>foresight.</em></p><a className="landing-cta" href="#workspace">Test a law <span aria-hidden="true">↗</span></a></div>
+      <div className="landing-photo-story landing-closing-photo">
+        <img className="landing-story-photo" src="/images/DSCF0313.jpg" alt="People standing beneath palm trees behind a large handwritten banner questioning public service and hardship" width="1920" height="1280" loading="lazy" decoding="async" />
+        <div className="landing-story-content"><p>Better questions start<br />with a little <em>foresight.</em></p></div>
+      </div>
+      <div className="landing-closing"><a className="landing-cta" href="#workspace">Test a law <span aria-hidden="true">↗</span></a></div>
     </section>
   </div>
 }

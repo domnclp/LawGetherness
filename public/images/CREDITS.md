@@ -1,5 +1,11 @@
 # Landing photograph
 
+## Project-supplied documentary photographs
+
+`DSCF0102.jpg`, `DSCF0279.jpg`, `DSCF0312.jpg`, and `DSCF0313.jpg` were supplied by the user on 2026-10-10 for the landing page's explanatory sections. The photographer and public reuse license were not provided; these files are not represented as Unsplash-licensed or public-domain material. The website uses optimized 1920px JPEG copies, with the original compositions preserved and source files untouched. The depicted people are not identified as actual respondents or project endorsers.
+
+## Licensed hero photograph
+
 - File: `quiapo-manila.jpg`
 - Photographer: Kristine Wook (@kwook)
 - Subject: People walking in the busy street of Quiapo, Manila, Philippines
