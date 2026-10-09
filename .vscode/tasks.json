@@ -1,36 +1,31 @@
 {
-  // Starts the Vite dev server in the background. F5 waits for "ready" before opening the browser.
+  // Starts the Vite dev server in the background. F5 waits for the "Local:" line before opening the browser.
   "version": "2.0.0",
   "tasks": [
     {
       "label": "Vite dev server",
-      "type": "npm",
-      "script": "dev",
+      "type": "shell",
+      "command": "npm run dev",
       "isBackground": true,
+      // Colors off: ANSI codes inside Vite's output break the ready-line match.
+      "options": { "env": { "NO_COLOR": "1", "FORCE_COLOR": "0" } },
       "problemMatcher": {
         "owner": "vite",
         "pattern": { "regexp": "^__never_matches__$" },
         "background": {
           "activeBegins": true,
-          "beginsPattern": "VITE v",
-          "endsPattern": "ready in"
+          "beginsPattern": "^\\s*> vite",
+          "endsPattern": "Local:\\s+http"
         }
       }
     },
     {
-      // Runs after debugging stops so the dev server doesn't linger.
+      // Runs after debugging stops: frees port 5173 so the dev server doesn't linger.
       "label": "Stop dev server",
       "type": "shell",
-      "command": "echo ${input:terminateVite}",
-      "presentation": { "reveal": "never" }
-    }
-  ],
-  "inputs": [
-    {
-      "id": "terminateVite",
-      "type": "command",
-      "command": "workbench.action.tasks.terminate",
-      "args": "Vite dev server"
+      "command": "Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }",
+      "presentation": { "reveal": "never" },
+      "problemMatcher": []
     }
   ]
 }
