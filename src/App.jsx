@@ -101,12 +101,12 @@ export default function App() {
   }
   return <div className="app-shell">
     <aside className="sidebar">
-      <a className="brand" href="#workspace" aria-label="LawGetherness workspace" title="LawGetherness"><span className="brand-mark"><Icon name="leaf" size={27} /></span><span>LawGetherness<small>ORDINANCE WIND TUNNEL</small></span></a>
+      <a className="brand" href="#welcome" aria-label="LawGetherness landing page" title="Back to welcome"><span className="brand-mark"><Icon name="leaf" size={27} /></span><span>LawGetherness<small>ORDINANCE WIND TUNNEL</small></span></a>
       <div className="workspace-label">WORKSPACE</div>
       <nav className="rail-nav" aria-label="Workspace navigation"><a className="nav-item active" href="#workspace" aria-label="Draft ordinance" title="Draft ordinance"><Icon name="grid" /><span>Draft ordinance</span><small>01</small></a><a className="nav-item" href="#community" aria-label="Resident map" title="Resident map"><Icon name="people" /><span>Resident map</span></a><a className="nav-item" href="#insights" aria-label="Review and refine" title="Review and refine"><Icon name="spark" /><span>Review & refine</span></a></nav>
       <div className="rail-status" title="Local inference"><Icon name="shield" size={18} /><i className="status-dot" /></div>
     </aside>
-    <main id="workspace">
+    <main id="workspace" tabIndex={-1}>
       <header className="topbar"><div>Workspace <span>/</span> <strong>Ordinance simulator</strong></div><span className="connection"><i className={`status-dot ${online ? '' : 'offline'}`} />{online ? 'Internet connected' : 'Internet disconnected'}</span></header>
       <div className="page-content">
         <div className="page-heading"><div><h1>A draft. A community. A clearer picture.</h1><p>Explore how your ordinance could affect everyday life.</p></div><span className="private-tag"><Icon name="shield" size={16} /> Runs locally</span></div>
