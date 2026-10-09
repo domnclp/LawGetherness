@@ -56,10 +56,11 @@ export const crowdSchema = {
   required: ['touches_me', 'effect', 'impact', 'judgment', 'stance', 'comply', 'insight', 'quote']
 }
 
-// Residents the ordinance doesn't touch skip the insight: their generic advice drowned out the
-// affected residents' real points (and skipping it saves about 30 output tokens each).
-const { insight: _insight, ...noInsight } = crowdSchema.properties
-export const crowdSchemaNoInsight = { type: 'object', properties: noInsight, required: crowdSchema.required.filter(k => k !== 'insight') }
+// Residents the ordinance doesn't touch skip the insight (their generic advice drowned out the affected
+// residents' real points) and the effect line, which code writes for them: their free-text effect was
+// where most misreads and invented stakes appeared. Saves about 55 output tokens each.
+const { insight: _insight, effect: _effect, ...bystander } = crowdSchema.properties
+export const crowdSchemaNoInsight = { type: 'object', properties: bystander, required: crowdSchema.required.filter(k => k !== 'insight' && k !== 'effect') }
 
 // Same idea as the crowd: reason about life impact before picking a stance.
 export const panelSchema = {

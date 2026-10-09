@@ -12,7 +12,7 @@ import {
   CROWD_SYSTEM, crowdUser, PANEL_SYSTEM, LOOPHOLE_SYSTEM_EXTRA, panelUser,
   REPORT_SYSTEM, REPORT_UNLAWFUL_SYSTEM, reportUser, summarizeCrowd, cleanQuote, legalCheckText, reconcile,
   findContradiction, neighborsDigest, fairnessLens, missingSections, affectedGroupsFor,
-  relevantDetails, pickIssue, tidyEnd, clusterInsights
+  relevantDetails, pickIssue, tidyEnd, clusterInsights, bystanderEffect
 } from './prompts.js'
 
 // 200 seeded adult residents (same every run), national approximate mix. Smaller runs use
@@ -70,33 +70,45 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
   const personas = PERSONAS_200.slice(0, size)
   const { text: brief, issues } = await briefOrText(ordinanceText)
   const affected = affectedGroupsFor(ordinanceText)   // occupation groups whose work this ordinance touches
-  const topic = `${ordinanceText}\n${brief}`
-  // Affected residents each get an insight angle (a different open question where possible);
-  // the rest answer without an insight field.
+  const lawful = /ordinary, lawful regulation/.test(brief)
+  // Who is affected comes from the ordinance text only (model-written brief words leaked in).
+  // Affected residents write their own effect and an insight, each on a different open question
+  // where possible; the rest get a code-written effect line and no insight.
   let k = 0
   const plan = personas.map(p => {
-    const rel = relevantDetails(p.details, topic, p.job, p)
-    const touched = rel.yes.length > 0 || affected.includes(p.group)
-    return { touched, issue: touched ? pickIssue(p, issues, rel, k++) : '' }
+    const rel = relevantDetails(p.details, ordinanceText, p.job, p)
+    const touched = rel.yes.length > 0 || rel.protects.length > 0 || affected.includes(p.group)
+    return { rel, touched, issue: touched ? pickIssue(p, issues, rel, k++) : '' }
   })
+  const check = (r, p) => findContradiction(r, p, brief, affected, ordinanceText)
   const ask = (p, i, s, note = '') => chat({
     system: CROWD_SYSTEM, user: crowdUser(p, brief, affected, ordinanceText, plan[i].issue) + note,
-    schema: plan[i].touched ? crowdSchema : crowdSchemaNoInsight, numPredict: plan[i].touched ? 300 : 240, signal: s
+    schema: plan[i].touched ? crowdSchema : crowdSchemaNoInsight, numPredict: plan[i].touched ? 300 : 200, signal: s
   }).then(r => ({
     ...r,
-    effect: tidyEnd(r.effect, 130),
+    effect: plan[i].touched ? tidyEnd(r.effect, 130) : bystanderEffect(plan[i].rel, lawful),
+    impact: plan[i].touched ? r.impact : Math.min(r.impact, 2),
     insight: plan[i].touched && r.touches_me !== 'not really' ? tidyEnd((r.insight || '').replace(/[<>]/g, ''), 170) : '',
     quote: cleanQuote(tidyEnd(r.quote, 150))
   }))
+  // Answers that still fail after the re-ask don't ship their bad text: a failing effect becomes the
+  // code-written line and a failing insight is dropped (the quote stays; the UI needs one).
+  const scrub = (r, p, i) => {
+    if (!check(r, p)) return r
+    const blank = { ...r, effect: '', insight: '' }
+    if (check(blank, p)) return r     // the problem is in the quote or labels; reconcile() handles labels
+    const ok = f => !check({ ...blank, [f]: r[f] })
+    return { ...r, effect: ok('effect') ? r.effect : bystanderEffect(plan[i].rel, lawful), insight: ok('insight') ? r.insight : '', flagged: true }
+  }
   const tasks = personas.map((p, i) => async s => {
     const first = await ask(p, i, s)
-    const problem = findContradiction(first, p, brief, affected, ordinanceText)
-    if (!problem) return reconcile(first)
+    const problem = check(first, p)
+    if (!problem) return reconcile(first, lawful)
     // One re-ask with the specific problem named. Keep the second answer if it fixed that problem
     // (even if a smaller one remains); otherwise keep the first.
     const second = await ask(p, i, s, `\n\nYour previous answer was inconsistent: ${problem}. Answer again, consistent with the facts about you.`).catch(() => null)
-    const fixed = second && findContradiction(second, p, brief, affected, ordinanceText) !== problem
-    return reconcile(fixed ? { ...second, reasked: true } : first)
+    const final = second && check(second, p) !== problem ? { ...second, reasked: true } : first
+    return reconcile(scrub(final, p, i), lawful)
   })
   const results = await runPool(tasks, {
     concurrency: 2,
