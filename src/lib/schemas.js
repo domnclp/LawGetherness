@@ -16,22 +16,24 @@ export const crowdSchema = {
   required: ['effect', 'impact', 'stance', 'comply', 'quote']
 }
 
+// Same idea as the crowd: reason about life impact before picking a stance.
 export const panelSchema = {
   type: 'object',
   properties: {
-    stance: { enum: ['support', 'mixed', 'oppose'] },
+    life_impact: { type: 'string', maxLength: 300 },
     impact: { type: 'integer', minimum: 1, maximum: 5 },
+    stance: { enum: ['support', 'mixed', 'oppose'] },
     comply: { enum: ['comply', 'partial', 'evade'] },
     reaction: { type: 'string', maxLength: 300 },
-    life_impact: { type: 'string', maxLength: 300 },
     loophole: { type: 'string', maxLength: 300 }
   },
-  required: ['stance', 'impact', 'comply', 'reaction', 'life_impact', 'loophole']
+  required: ['life_impact', 'impact', 'stance', 'comply', 'reaction', 'loophole']
 }
 
 export const reportSchema = {
   type: 'object',
   properties: {
+    headline: { type: 'string', maxLength: 200 },
     most_affected: { type: 'array', items: { type: 'string' }, maxItems: 4 },
     top_loopholes: { type: 'array', items: { type: 'string' }, maxItems: 4 },
     amendments: {
@@ -48,5 +50,5 @@ export const reportSchema = {
       }
     }
   },
-  required: ['most_affected', 'top_loopholes', 'amendments']
+  required: ['headline', 'most_affected', 'top_loopholes', 'amendments']
 }

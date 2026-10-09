@@ -43,7 +43,7 @@ export async function chat({ model = MODEL, system, user, schema, numPredict = 1
 
 // Streaming call for panel cards: onToken(fullTextSoFar) fires as text arrives.
 // Returns the parsed JSON once the stream ends.
-export async function chatStream({ model = MODEL, system, user, schema, numPredict = 400, temperature = 0.8, signal, onToken }) {
+export async function chatStream({ model = MODEL, system, user, schema, numPredict = 500, temperature = 0.8, signal, onToken }) {
   const res = await post({
     model, stream: true, format: schema, ...noThink(model),
     options: { temperature, num_predict: numPredict, num_ctx: NUM_CTX },
