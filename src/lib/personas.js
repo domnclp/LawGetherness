@@ -50,7 +50,17 @@ const LAST_NAMES = [
   'Dela Cruz', 'Castillo', 'Flores', 'Navarro', 'Pascual', 'Manalo', 'Salazar', 'Dizon', 'Lopez', 'Gonzales'
 ]
 
-const occupationTable = OCCUPATIONS.map(([job, w, info]) => [{ job, ...info }, w])
+// Attitude toward rules in general. Without this the model makes everyone oppose;
+// real barangays have residents who welcome order, ones who only count pesos, and skeptics.
+const DISPOSITIONS = [
+  ['you value safety, order, and discipline, and welcome rules that do not take food off your table', 3],
+  ['you are community-minded and will accept some personal sacrifice if it helps the barangay', 2],
+  ['you are practical: you judge a rule only by how it changes your money and time', 3],
+  ['you are easygoing and rarely bothered by rules that do not touch your daily routine', 2],
+  ['you distrust local officials and suspect new rules are about fines and kotong', 2]
+]
+
+const occupationTable =OCCUPATIONS.map(([job, w, info]) => [{ job, ...info }, w])
 
 export function generateCrowd(n = 200, seed = 42) {
   const rng = mulberry32(seed)
@@ -66,7 +76,8 @@ export function generateCrowd(n = 200, seed = 42) {
       income: weighted(rng, occ.income),
       commute: weighted(rng, occ.commute),
       household: 1 + Math.floor(rng() * 7),       // 1–7 people
-      purok: 1 + Math.floor(rng() * 7)            // Purok 1–7
+      purok: 1 + Math.floor(rng() * 7),           // Purok 1–7
+      outlook: weighted(rng, DISPOSITIONS)
     })
   }
   return crowd

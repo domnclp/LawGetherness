@@ -24,7 +24,7 @@ The UI must clearly say: **"Simulated reactions from a small local model, not a 
 
 - All AI inference is local via Ollama at `http://localhost:11434`. **No cloud AI APIs.**
 - Machine: ASUS TUF F17, i7-12700H, 16 GB RAM, **RTX 3060 Laptop with 6 GB VRAM**.
-- Model: `qwen2.5:3b` only (backup: `gemma3:4b` if Taglish is poor). Do NOT use 7B models; they spill out of 6 GB VRAM.
+- Model: `gemma3:4b` (switched from `qwen2.5:3b`, whose Taglish was garbled; benchmark: gemma 50 residents in ~74 s, 100% GPU, ~3.9 GB VRAM at concurrency 2). Model name lives in `MODEL` in `src/lib/ollama.js`. Do not settle for a mediocre model: if a better one fits 6 GB VRAM, benchmark it and switch. Do NOT use 7B+ models; they spill out of 6 GB VRAM.
 - Ollama env vars: `OLLAMA_NUM_PARALLEL=2`, `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_FLASH_ATTENTION=1`.
 - Every request sets `num_ctx: 2048`. Crowd calls set `num_predict: 80`.
 - Pool concurrency = 2. If the model spills out of VRAM, drop to concurrency 1 and `num_ctx` 1536.
@@ -49,7 +49,7 @@ The UI must clearly say: **"Simulated reactions from a small local model, not a 
 | Layer | Choice |
 | --- | --- |
 | Local inference | Ollama for Windows (uses NVIDIA GPU via CUDA) |
-| Model | `qwen2.5:3b` (about 2 GB) |
+| Model | `gemma3:4b` (about 3.3 GB) |
 | Frontend | Vite + React (JavaScript) |
 | Styling | Plain CSS with CSS variables; dot grid is a CSS grid |
 | Charts (optional) | Recharts |
@@ -259,7 +259,7 @@ Panel cards use `stream: true` and read the response line by line so text appear
 - [ ] What requires internet: only the one-time download of Ollama, the model, and npm packages; nothing at run time
 
 **The disclosures**
-- [ ] Models: `qwen2.5:3b` (Qwen 2.5 by Alibaba, via Ollama)
+- [ ] Models: `gemma3:4b` (Gemma 3 by Google, via Ollama); `qwen2.5:3b` tested and rejected
 - [ ] Technologies and frameworks: Ollama, Vite, React, Recharts, Node.js
 - [ ] APIs and cloud services: none at run time (Ollama local API only)
 - [ ] Existing code and assets: Vite React template; sample ordinances (say whether invented or from a public source)

@@ -1,16 +1,19 @@
 // JSON schemas for Ollama structured output (the `format` field).
 // Property order matters: Ollama generates fields in schema order, so short
 // fields come first and a long quote can never push them out of the token budget.
+// `effect` comes first on purpose: the model states how the ordinance touches it
+// before choosing a stance, which keeps stance/impact consistent with the persona.
 
 export const crowdSchema = {
   type: 'object',
   properties: {
-    stance: { enum: ['support', 'mixed', 'oppose'] },
+    effect: { type: 'string', maxLength: 90 },
     impact: { type: 'integer', minimum: 1, maximum: 5 },
+    stance: { enum: ['support', 'mixed', 'oppose'] },
     comply: { enum: ['comply', 'partial', 'evade'] },
     quote: { type: 'string', maxLength: 120 }
   },
-  required: ['stance', 'impact', 'comply', 'quote']
+  required: ['effect', 'impact', 'stance', 'comply', 'quote']
 }
 
 export const panelSchema = {

@@ -1,10 +1,14 @@
 // Thin wrapper around the local Ollama chat API (proxied by Vite at /ollama).
 // Every call is local; nothing leaves the laptop.
 
-export let MODEL = 'qwen2.5:3b'          // swap to 'gemma3:4b' if Taglish is better there
+// gemma3:4b chosen over qwen2.5:3b: far more natural Taglish (benchmarked 50 residents each).
+export let MODEL = 'gemma3:4b'
 export function setModel(m) { MODEL = m }
 
 const NUM_CTX = 2048
+
+// Qwen3 models reason out loud by default; turn that off so tokens go to the answer.
+const noThink = model => (model.startsWith('qwen3') ? { think: false } : {})
 
 // Turn fetch/HTTP failures into one clear message the UI can show.
 async function post(body, signal) {
@@ -27,9 +31,9 @@ async function post(body, signal) {
 }
 
 // One structured call. Returns the parsed JSON object (throws SyntaxError on bad JSON).
-export async function chat({ model = MODEL, system, user, schema, numPredict = 120, temperature = 0.8, signal }) {
+export async function chat({ model = MODEL, system, user, schema, numPredict = 120, temperature = 0.7, signal }) {
   const res = await post({
-    model, stream: false, format: schema,
+    model, stream: false, format: schema, ...noThink(model),
     options: { temperature, num_predict: numPredict, num_ctx: NUM_CTX },
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
   }, signal)
@@ -41,7 +45,7 @@ export async function chat({ model = MODEL, system, user, schema, numPredict = 1
 // Returns the parsed JSON once the stream ends.
 export async function chatStream({ model = MODEL, system, user, schema, numPredict = 400, temperature = 0.8, signal, onToken }) {
   const res = await post({
-    model, stream: true, format: schema,
+    model, stream: true, format: schema, ...noThink(model),
     options: { temperature, num_predict: numPredict, num_ctx: NUM_CTX },
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
   }, signal)
