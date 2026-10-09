@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { runCrowd, runPanel, runReport, runSummary, getQuickSummary, getSummaryHighlights, getRunSource, prefetchBrief, readOrdinanceFile, prepareDraft, printCouncilMemo, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
+import { runCrowd, runPanel, runReport, runSummary, getQuickSummary, getSummaryHighlights, getRunSource, prefetchBrief, readOrdinanceFile, prepareDraft, printCouncilMemo, percents, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL, SAMPLES, CROWD_MIX, JOBS } from './lib/api.js'
 import PanelCards from './components/PanelCards.jsx'
 import Report from './components/Report.jsx'
 import ResponseContext from './components/ResponseContext.jsx'
@@ -69,7 +69,7 @@ export default function App() {
   }, [draft, running])
   const completed = Object.values(results).filter(r => r && !r.error && stances.includes(r.stance))
   const counts = stances.map(s => completed.filter(r => r.stance === s).length)
-  const percentages = counts.map(n => completed.length ? Math.round(n / completed.length * 100) : 0)
+  const percentages = percents(counts)   // whole numbers that add up to 100
   const done = Object.keys(results).length
   const visible = residents.filter(r => (filter === 'all' || results[r.id]?.stance === filter) && (job === 'all' || r.group === job) && (sector === 'all' || r.sector === sector))
   const sectorGroups = sectors.map(name => ({ name, residents: visible.filter(resident => resident.sector === name) }))

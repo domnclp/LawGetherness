@@ -392,6 +392,7 @@ export async function getSummaryHighlights(ordinanceText, crowdResults) {
 // Extra (additive): attach-file and paste helpers for the draft box (see extract.js).
 // readOrdinanceFile(file) -> { text, note }; prepareDraft(text) -> { text, note }.
 export { readOrdinanceFile, prepareDraft } from './extract.js'
+export { percents } from './prompts.js'
 
 // ---------- Council memo ----------
 // One-page, print-ready brief of a finished run (see lib/memo.js). data: { draft, residents, results,

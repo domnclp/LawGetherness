@@ -4,6 +4,8 @@
 // printCouncilMemo() opens the browser's print dialog (Save as PDF works too) through a hidden
 // iframe, so no popup blocker gets in the way; downloadCouncilMemo() saves the same page as .html.
 
+import { percents } from './prompts.js'
+
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 // Long model text would push the memo onto a second page; cut at a word boundary.
 const clip = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length <= n ? t : t.slice(0, t.lastIndexOf(' ', n - 1) > n * 0.6 ? t.lastIndexOf(' ', n - 1) : n - 1).replace(/[,;:\s]+$/, '') + '…' }
@@ -43,6 +45,8 @@ export function buildMemoHtml(data) {
   const count = (k, v) => reactions.filter(r => r[k] === v).length
   const split = { support: count('stance', 'support'), mixed: count('stance', 'mixed'), oppose: count('stance', 'oppose') }
   const comply = { comply: count('comply', 'comply'), partial: count('comply', 'partial'), evade: count('comply', 'evade') }
+  const [ps, pm, po] = percents([split.support, split.mixed, split.oppose])
+  const [cc, cp, ce] = percents([comply.comply, comply.partial, comply.evade])
   const hit = hardestHit(residents, byId)
   const withdraw = report?.verdict === 'withdraw'
   const verdict = withdraw ? 'Withdraw or rewrite: legal and ethical problems found' : 'Revise before filing'
@@ -95,8 +99,8 @@ export function buildMemoHtml(data) {
 <div class="meta">${esc(when)}<br>LawGetherness · offline simulation</div></header>
 <h1>${esc(titleOf(draft))}</h1>
 <p class="headline">${esc(clip(report?.headline || '', 180))}</p>
-<div class="stats"><span><b>${n}</b> simulated residents</span><span>Support <b>${pct(split.support, n)}%</b></span><span>Mixed <b>${pct(split.mixed, n)}%</b></span><span>Oppose <b>${pct(split.oppose, n)}%</b></span><span>Would comply fully <b>${pct(comply.comply, n)}%</b> · partly ${pct(comply.partial, n)}% · evade ${pct(comply.evade, n)}%</span></div>
-<div class="bar" role="img" aria-label="Support ${pct(split.support, n)}%, mixed ${pct(split.mixed, n)}%, oppose ${pct(split.oppose, n)}%"><span class="s" style="width:${pct(split.support, n)}%"></span><span class="m" style="width:${pct(split.mixed, n)}%"></span><span class="o" style="width:${pct(split.oppose, n)}%"></span></div>
+<div class="stats"><span><b>${n}</b> simulated residents</span><span>Support <b>${ps}%</b></span><span>Mixed <b>${pm}%</b></span><span>Oppose <b>${po}%</b></span><span>Would comply fully <b>${cc}%</b> · partly ${cp}% · evade ${ce}%</span></div>
+<div class="bar" role="img" aria-label="Support ${ps}%, mixed ${pm}%, oppose ${po}%"><span class="s" style="width:${ps}%"></span><span class="m" style="width:${pm}%"></span><span class="o" style="width:${po}%"></span></div>
 <span class="verdict">Recommendation: ${esc(verdict)}</span>
 ${togetherness?.summary ? `<h2>What residents think</h2><p>${togetherness.mood ? `<b>${esc(togetherness.mood)}.</b> ` : ''}${esc(clip(togetherness.summary, 320))}</p>` : ''}
 <div class="cols">

@@ -748,7 +748,16 @@ export function moodOf({ stance, total }) {
   return 'Divided'
 }
 
-const share = (n, total) => `${Math.round(n / total * 100)}%`
+// Whole percentages that add up to 100 (largest remainder): 131/69/0 of 200 is 66/34/0, not 66/35/0.
+export function percents(counts) {
+  const total = counts.reduce((a, b) => a + b, 0)
+  if (!total) return counts.map(() => 0)
+  const raw = counts.map(n => n / total * 100)
+  const out = raw.map(Math.floor)
+  let left = 100 - out.reduce((a, b) => a + b, 0)
+  raw.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { out[i]++; left-- } })
+  return out
+}
 
 // Instant code-only summary, shown while the model writes the real one (and as its fallback).
 export function quickSummary(personas, results) {
@@ -757,7 +766,8 @@ export function quickSummary(personas, results) {
   const top = clusterInsights(personas, results, 1)[0]
   const hardest = Object.entries(s.byJob).filter(([, v]) => v.n >= 2)
     .sort((a, b) => b[1].impactSum / b[1].n - a[1].impactSum / a[1].n)[0]
-  const parts = [`Of ${s.total} simulated residents, ${share(s.stance.support, s.total)} support the draft, ${share(s.stance.mixed, s.total)} are mixed, and ${share(s.stance.oppose, s.total)} oppose it.`]
+  const [ps, pm, po] = percents([s.stance.support, s.stance.mixed, s.stance.oppose])
+  const parts = [`Of ${s.total} simulated residents, ${ps}% support the draft, ${pm}% are mixed, and ${po}% oppose it.`]
   if (s.touches['not really'] / s.total > 0.6) parts.push(`Most say it does not change their own week much.`)
   if (hardest && hardest[1].impactSum / hardest[1].n >= 2.5) parts.push(`It weighs most on the ${hardest[0]} group (average impact ${(hardest[1].impactSum / hardest[1].n).toFixed(1)} of 5).`)
   if (top) parts.push(`The most raised point (${top.count} ${top.count === 1 ? 'resident' : 'residents'}): ${top.text.replace(/\.$/, '')}.`)
