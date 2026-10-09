@@ -3,6 +3,7 @@
 import { runCrowd, runPanel, runReport, checkOllama, PERSONAS_200, PANEL_PERSONAS, MODEL } from './lib/api.js'
 import PanelCards from './components/PanelCards.jsx'
 import Report from './components/Report.jsx'
+import ResponseContext from './components/ResponseContext.jsx'
 
 const population = size => PERSONAS_200.slice(0, size)
 const jobs = [...new Set(PERSONAS_200.map(person => person.job))]
@@ -107,19 +108,19 @@ export default function App() {
       <div className="rail-status" title="Local inference"><Icon name="shield" size={18} /><i className="status-dot" /></div>
     </aside>
     <main id="workspace" tabIndex={-1}>
-      <header className="topbar"><div>Workspace <span>/</span> <strong>Ordinance simulator</strong></div><span className="connection"><i className={`status-dot ${online ? '' : 'offline'}`} />{online ? 'Internet connected' : 'Internet disconnected'}</span></header>
+      <header className="topbar workspace-header"><a className="workspace-wordmark" href="#welcome">Law<em>Getherness</em><small>ORDINANCE WIND TUNNEL</small></a><nav className="workspace-links" aria-label="Page sections"><a href="#draft">Draft a law</a><a href="#community">Community</a><a href="#insights">Review</a></nav><span className="connection"><i className={`status-dot ${online ? '' : 'offline'}`} />{online ? 'Internet connected' : 'Internet disconnected'}</span></header>
       <div className="page-content">
         <div className="page-heading"><div><h1>A draft. A community. A clearer picture.</h1><p>Explore how your ordinance could affect everyday life.</p></div><span className="private-tag"><Icon name="shield" size={16} /> Runs locally</span></div>
         <div className="workspace-grid">
           <section className="card draft-card" id="draft">
-            <div className="card-heading"><div><h2>Draft ordinance</h2></div></div>
+            <div className="card-heading"><div><span className="workspace-kicker">YOUR STARTING POINT</span><h2>A law worth thinking through.</h2><p>Bring your proposal. Explore its possibilities.</p></div></div>
             <label className="field-label" htmlFor="sample">START WITH AN EXAMPLE</label>
             <select id="sample" value={sample} disabled={running} onChange={e => { setSample(e.target.value); if (e.target.value !== 'custom') setDraft(samples[Number(e.target.value)].text) }}><option value="custom">Your own ordinance</option>{samples.map((s, i) => <option key={s.title} value={i}>{s.title}</option>)}</select>
             <div className="editor-heading"><label className="field-label" htmlFor="ordinance">ORDINANCE TEXT</label><span>Editable draft</span></div>
             <textarea id="ordinance" value={draft} disabled={running} onChange={e => { setDraft(e.target.value); setSample('custom') }} placeholder="Paste your draft ordinance here…" />
             <div className="editor-footer"><span>Invented examples · no legal validation</span><span>{draft.length.toLocaleString()} characters</span></div>
-            <div className="population-heading"><div><span className="field-label">SIMULATED COMMUNITY</span><p>Same residents. Different perspectives.</p></div><Icon name="people" /></div>
-            <div className="size-options" role="group" aria-label="Number of simulated residents">{[50, 100, 200].map(n => <button key={n} disabled={running} className={size === n ? 'chosen' : ''} aria-pressed={size === n} onClick={() => setSize(n)}><strong>{n}</strong><span>residents</span>{n === 50 && <small>Quick start</small>}</button>)}</div>
+            <div className="population-heading"><div><span className="field-label">COMMUNITY SIZE</span><p>Choose how many perspectives to explore.</p></div></div>
+            <div className="size-options" role="group" aria-label="Number of simulated residents">{[50, 100, 200].map(n => <button key={n} disabled={running} className={size === n ? 'chosen' : ''} aria-pressed={size === n} onClick={() => setSize(n)}><strong>{n}</strong><span>residents</span></button>)}</div>
             <button className="primary-button" disabled={!draft.trim() || running} onClick={run}><Icon name="spark" size={18} />{running ? phase === 'checking' ? 'Checking local AI…' : phase === 'panel' ? 'Listening to panel…' : phase === 'report' ? 'Preparing report…' : `Simulating · ${done}/${residents.length}` : 'Run simulation'}<Icon name="arrow" size={18} /></button>
             {running && phase !== 'report' && <button className="stop-button" onClick={() => { cancelled.current = true; controller.current?.abort() }}>Stop simulation</button>}
             <p className="button-note"><Icon name="shield" size={13} /> {health === 'ready' ? 'Local AI ready' : health === 'checking' ? 'Checking local AI…' : `Start Ollama with ${MODEL} to run` }</p>
@@ -129,6 +130,7 @@ export default function App() {
             <div className="card-heading"><div><h2>Community perspectives</h2></div><span className={`preview-badge ${mode === 'live' ? 'live' : ''}`}>{mode === 'preview' ? 'Sample preview' : running ? 'Running' : 'Local results'}</span></div>
             <div className="results-caption" role="status"><span>{mode === 'preview' ? 'Illustrative data · not generated from your draft' : `${completed.length} valid reactions · ${done - completed.length} unavailable`}</span><strong>{residents.length} residents</strong></div>
             {mode === 'live' && draft !== runDraft && <p className="draft-changed">Draft edited. Run again to update these results.</p>}
+            <ResponseContext mode={mode} draft={draft} runDraft={runDraft} person={person} reaction={reaction} />
             <div className="stat-grid">{stances.map((s, i) => <button key={s} className={`stat ${s} ${filter === s ? 'selected-stat' : ''}`} onClick={() => setFilter(filter === s ? 'all' : s)} aria-pressed={filter === s}><span><i />{s}</span><strong>{percentages[i]}<small>%</small></strong><span>{counts[i]}</span></button>)}</div>
             <div className="stance-bar" aria-label="Distribution of simulated reactions">{stances.map((s, i) => <span key={s} className={s} style={{ flex: counts[i] || 0.001 }} />)}</div>
             {running && <progress aria-label="Simulation progress" max={residents.length} value={done} />}
