@@ -6,25 +6,86 @@ const RESPECT = 'Stay respectful even when opposed: no slurs, insults, or demean
 // A small model misreads legal text in many different ways; reading it once into
 // plain facts and handing those to every resident keeps 200 reactions consistent.
 
-export const BRIEF_SYSTEM = `You explain a Philippine city ordinance in plain English for ordinary residents.
+// Real Philippine legal and public-opinion facts the brief may cite. A 4B model does not
+// reliably know these and will invent laws if asked open-ended, so it may only copy from here.
+export const KNOWLEDGE = [
+  '1987 Constitution, Bill of Rights (Art. III): Sec. 1 guarantees due process and equal protection of the laws; Sec. 4 free speech and peaceful assembly; Sec. 6 liberty of abode and travel; Sec. 19 bans cruel, degrading, or inhuman punishment.',
+  'Local Government Code (RA 7160) Sec. 458: a city ordinance may impose at most a ₱5,000 fine, up to 1 year imprisonment, or both. Barangay ordinances may impose at most a ₱1,000 fine (Sec. 391).',
+  'Supreme Court, Magtajas v. Pryce Properties (1994): a valid ordinance must not contravene the Constitution or any statute, must not be unfair or oppressive, must not be partial or discriminatory, may regulate but not prohibit trade, must be general and consistent with public policy, and must not be unreasonable.',
+  'Being LGBTQ+ is not a crime under Philippine law. Laws may punish harmful acts, not who a person is.',
+  'Safe Spaces Act (RA 11313, 2019): penalizes gender-based harassment, including homophobic and transphobic slurs, in streets, public spaces, online, workplaces, and schools.',
+  'Several local governments, including Quezon City, have ordinances banning discrimination based on sexual orientation, gender identity and expression, and sex characteristics (SOGIESC).',
+  'Pew Research Center (2019): 73% of Filipinos said homosexuality should be accepted by society.',
+  'Juvenile Justice and Welfare Act (RA 9344, amended by RA 10630): minors are not penalized for status offenses like curfew violations; they are released to parents or referred to social workers.',
+  'Executive Order 26 (2017) bans smoking in enclosed public places and public vehicles nationwide; RA 9211 regulates tobacco; RA 11900 (2022) regulates vapes.',
+  'Ecological Solid Waste Management Act (RA 9003, 2000): requires waste segregation and prohibits littering in public places.',
+  'Supreme Court, SPARK v. Quezon City (2017): upheld Quezon City\'s minor curfew because it had clear exemptions and was narrowly drawn; struck down Manila\'s and Navotas\'s curfews.'
+]
+
+export const BRIEF_SYSTEM = `You explain a Philippine city ordinance in plain English for ordinary residents, and check it against the law and basic ethics.
 Use ONLY what the text says. If something is not stated, write "not stated". Never invent fines or details.
 summary: one sentence, max 25 words, what the ordinance does.
-who_must_change: up to 5 specific groups whose behavior must change (e.g. "smokers", "store owners", "parents of minors"). Never list "residents", "everyone", or "city officials".
-what_changes: max 25 words, exactly what those people must stop or start doing.
+who_must_change: up to 5 specific groups whose behavior must change or who are targeted (e.g. "smokers", "store owners", "parents of minors", "LGBTQ+ people"). Never list "residents", "everyone", or "city officials".
+what_changes: max 25 words, exactly what those people must stop or start doing, or what is done to them.
 where_when: max 20 words. penalty: max 20 words. exemptions: max 25 words.
+targets_identity: true if it punishes or restricts people for WHO THEY ARE (sexual orientation, gender identity, religion, ethnicity, disability, poverty) rather than for a harmful ACT.
+rights_issues: max 30 words. Which constitutional rights or national laws it may violate, using the facts below. "None apparent" if it is an ordinary regulation.
+penalty_check: max 25 words. Is the penalty within what a city may impose (max ₱5,000 fine and/or 1 year jail) and proportionate to the harm? "Not stated" if no penalty is given.
+public_benefit: max 20 words. The real benefit to the community, if any (health, safety, cleanliness). "None" if it only harms people.
+legality: "likely valid" for ordinary regulations of harmful acts with fair penalties; "questionable" if vague, overbroad, or the penalty seems excessive; "likely unconstitutional" if it targets identity, punishes harmless conduct, exceeds penalty limits, or violates the Bill of Rights.
+known_facts: up to 3 facts from the list below that are relevant to this ordinance, copied closely. Never invent laws, cases, or numbers. Empty if none apply.
+Facts you may use:
+${KNOWLEDGE.map(k => '- ' + k).join('\n')}
 Answer only in the JSON schema.`
 
 export function briefUser(ordinance) {
   return `Ordinance:\n${ordinance}`
 }
 
+// Penalty limits checked in code: the model misses numbers (it called "5 years and ₱20,000" "not stated").
+// RA 7160 Sec. 458: a city ordinance may impose at most a ₱5,000 fine and/or 1 year imprisonment.
+export function penaltyOverLimit(ordinance = '') {
+  const text = ordinance.replace(/,/g, '')
+  const fines = [...text.matchAll(/(?:₱|PHP|Php|P)\s?(\d{3,})/g)].map(m => Number(m[1]))
+  const jailed = /imprison|jail|prison|kulong|arrest/i.test(text)
+  const years = jailed ? [...text.matchAll(/(\d+)\)?\s*(?:years?|yrs?|taon)/gi)].map(m => Number(m[1])) : []
+  const issues = []
+  if (fines.some(f => f > 5000)) issues.push(`a fine of ₱${Math.max(...fines).toLocaleString()} (limit ₱5,000)`)
+  if (years.some(y => y > 1)) issues.push(`${Math.max(...years)} years in jail (limit 1 year)`)
+  return issues.length ? `Exceeds the legal maximum for a city ordinance under RA 7160 Sec. 458: ${issues.join(' and ')}.` : ''
+}
+
+// Applies code-side checks on top of the model's brief.
+export function checkBrief(brief, ordinance) {
+  const over = penaltyOverLimit(ordinance)
+  if (!over) return brief
+  return {
+    ...brief,
+    penalty_check: over,
+    legality: brief.legality === 'likely valid' ? 'questionable' : brief.legality
+  }
+}
+
+// A lawful ordinary regulation gets one short check line; the full legal analysis is shown only
+// when something is wrong. For a 4B model the long block is noise on normal rules and muddles
+// the reactions (support for a public smoking ban fell from 25/30 to 8/30 with it).
 export function briefText(b) {
-  return `${b.summary}
+  const head = `${b.summary}
 Who must change: ${b.who_must_change.join(', ') || 'not stated'}
 What changes: ${b.what_changes}
 Where/when: ${b.where_when}
 Penalty: ${b.penalty}
 Exemptions: ${b.exemptions}`
+  if (b.legality === 'likely valid' && !b.targets_identity) {
+    return `${head}\nLegal and ethical check: an ordinary, lawful regulation. Real benefit: ${b.public_benefit}`
+  }
+  return `${head}
+Legal and ethical check:
+- Punishes people for who they are: ${b.targets_identity ? 'YES' : 'no'}
+- Rights and laws: ${b.rights_issues}
+- Penalty: ${b.penalty_check}
+- Real benefit: ${b.public_benefit}
+- Legality: ${b.legality}${b.known_facts?.length ? `\nFacts most Filipinos know or can easily learn:\n${b.known_facts.map(f => '- ' + f).join('\n')}` : ''}`
 }
 
 // ---------- Crowd ----------
@@ -36,17 +97,22 @@ touches_me: "directly" = it restricts something I personally do, own, sell, or a
 effect: plain English, max 15 words, what concretely changes in MY week. Name the specific thing (my cigarettes, my stall's plastic bags, my teenager's nights out, my street parking). If "not really", say so.
 impact: 1 = barely affects my day, 2 = small hassle, 3 = noticeable cost, time, or habit change, 4 = cuts my income or adds big costs, 5 = threatens my livelihood.
   "not really" means impact 1 or 2. If it restricts how I EARN my living, 4 or 5. If it restricts a personal habit of mine, 3 or 4.
-stance: support, mixed, or oppose.
-  - If the ordinance PROTECTS me or my family, I support it.
-  - impact 4 or 5: oppose, or mixed if I also truly see the benefit.
-  - impact 1 or 2: my outlook and values decide; most such residents support rules that promise safety, health, cleanliness, fairness, or order.
-  - impact 3: weigh the cost against my outlook and values.
-  - For social rules, values matter: traditional residents often favor curfews and discipline; progressive residents often favor anti-discrimination and personal freedom.
+judgment: decide like a thoughtful, decent, informed Filipino adult, using the "Legal and ethical check":
+  "good rule" = lawful, fair, and does real good (health, safety, children, cleanliness), at little cost to me.
+  "good rule but costly for me" = lawful and useful, but it costs me money, time, or a habit (impact 3 or more).
+  "unfair or harmful" = punishes people for who they are, jails people for harmless acts, uses excessive penalties, or is likely unconstitutional. This is wrong even if it does not touch me.
+  "pointless" = will not really work or cannot be enforced.
+stance: follow my judgment.
+  "good rule" -> support. "good rule but costly for me" -> mixed, or oppose if it cuts my income (impact 4-5). "unfair or harmful" -> oppose. "pointless" -> mixed or oppose.
+  If the ordinance PROTECTS me or my family, my judgment is "good rule".
+  Values shape the degree: traditional residents are stricter on curfews and discipline, progressive residents care more about personal freedom; but everyone respects human dignity and the Constitution.
 comply: "comply" = follow it fully; "partial" = only when enforcers are watching; "evade" = find a way around it.
-  If impact is 1 or 2, I comply fully unless I distrust officials. Many who dislike a rule still comply out of fear of the penalty.
+  For fair rules, if impact is 1 or 2, I comply fully unless I distrust officials. Many who dislike a rule still comply out of fear of the penalty.
+  For a rule that is wrong, I would not help enforce it; people targeted by it would evade it.
 quote: ONE Taglish sentence (Tagalog mixed with English, max 15 words), what I would tell a neighbor, in my voice.
   If it touches me, say how, naming the specific thing (my cigarettes, my bags, my anak, my parking).
   If it does not touch me, do NOT say I am unaffected and do NOT say "we must follow it for the barangay"; speak from my angle instead, concretely.
+  If the rule is wrong, say WHY in plain words (e.g. it punishes people for who they are, it is against the Constitution, the penalty is too harsh).
   Only mention things in MY profile; never invent a job, vehicle, habit, or family I do not have.
   ${RESPECT} No hashtags, no emojis, no quotation marks. Do not start with "Grabe" or "Naku".
 Example quotes from different residents (tone only, never copy):
@@ -54,7 +120,20 @@ Example quotes from different residents (tone only, never copy):
 - "Isang kaha isang araw ako, saan na ako yoyosi ngayon?"
 - "Mabuti 'yan, para hindi na gabi-gabing gumagala anak ko."
 - "Opo, susunod po kami, pero sana may libreng eco-bag muna sa palengke."
+- "Hindi krimen ang pagkatao ng tao, labag 'yan sa Konstitusyon."
 Answer only in the JSON schema.`
+
+// Contradiction checker: fixes blatant stance/judgment mismatches the model sometimes makes
+// (calling something a good rule while opposing it at no personal cost, or supporting an unjust rule).
+export function reconcile(r) {
+  if (!r || !r.judgment) return r
+  let stance = r.stance
+  if (r.judgment === 'unfair or harmful') stance = 'oppose'
+  else if (r.judgment === 'good rule' && r.stance === 'oppose' && r.impact <= 2) stance = 'support'
+  else if (r.judgment === 'good rule but costly for me' && r.stance === 'support' && r.impact >= 4) stance = 'mixed'
+  else if (r.judgment === 'good rule but costly for me' && r.impact <= 2 && r.stance === 'mixed') stance = 'support'  // impact 1-2 is not costly
+  return stance === r.stance ? r : { ...r, stance, adjusted: true }
+}
 
 // Small models open most Filipino sentences with an interjection ("Ay,", "Uy,", "Naku,").
 // Strip one leading interjection and stray quote marks so the grid shows varied, clean quotes.
@@ -80,7 +159,7 @@ const DETAIL_TOPICS = [
   [/parks it on the street/, /park|curb/, 'I do not park a car on the street'],
   [/drives a|car with a garage/, /traffic|road|vehicle|idl|motorist|driver/, 'I do not drive; I ride as a passenger or walk'],
   [/drinks with neighbors/, /drink|liquor|alcohol/, 'I do not drink outside'],
-  [/LGBTQ/, /sogiesc|sexual orientation|gender|discriminat/, 'I am not LGBTQ+'],
+  [/LGBTQ/, /sogiesc|sexual orientation|gender|discriminat|lgbt|gay|lesbian|bakla|tomboy|transgender|homosexual|queer/, 'I am not LGBTQ+'],
   [/plastic bags/, /plastic|bag/, 'I do not sell anything, so I give out no bags; I only receive them when I shop'],
   [/carinderia|food service/, /restaurant|cutlery|disposable|single-use/, 'I do not work in a restaurant or carinderia'],
   [/hires a few workers/, /employ|hire|discriminat|workplace/, 'I do not employ anyone'],
@@ -148,7 +227,7 @@ You are told which parts of your life this ordinance touches and facts about wha
 Fill the fields in order:
 life_impact: English, 2 sentences, max 35 words. What actually changes in my week because of THIS ordinance: what, when, how much in pesos or minutes. If it barely touches me, say so and say who I know it does affect. If it protects me or my family, say how.
 impact: 1 = barely affects me ... 5 = threatens my livelihood. If it restricts how I earn a living, 4 or 5. If it barely touches me, 1 or 2.
-stance: support, mixed, or oppose, consistent with impact and my values. If the ordinance PROTECTS me or my family, support it.
+stance: support, mixed, or oppose. Think like a decent, informed person: read the "Legal and ethical check". If the rule punishes people for who they are, jails people for harmless acts, or is likely unconstitutional, oppose it even if it does not touch me. Support rules that genuinely protect health, safety, or children. If the ordinance PROTECTS me or my family, support it. If it cuts my income, weigh that honestly.
 comply: "comply" = follow fully; "partial" = only when watched; "evade" = find a way around it.
 reaction: max 30 words of natural Taglish (Tagalog mixed with English), what I would say at a barangay assembly. Make one clear point. Do not start with "Uy" or "Ay naku". No hashtags, no emojis.
 loophole: English, max 30 words. The most realistic way people would get around THIS ordinance, or a specific gap in its wording. Name the exact word, section, or missing detail.
@@ -174,11 +253,26 @@ export const REPORT_SYSTEM = `You are a legislative analyst helping a Quezon Cit
 You get results from a SIMULATION of residents (not a real survey): stance counts, counts by occupation, compliance, a panel of detailed residents with their loopholes and suggested fixes, and sample quotes.
 Write clear, specific English for the councilor. Refer to sections of the ordinance. Build amendments from the panel's suggested fixes and loopholes.
 If the ordinance leaves key details unstated (penalties, definitions, exemptions, enforcement), say so and propose explicit wording.
+Read the "Legal and ethical check". If the ordinance is likely unconstitutional or punishes people for who they are, the headline must say so plainly, and the first amendment must recommend withdrawing it or replacing it with a lawful alternative; do not polish an unjust rule. Cite only the facts given.
 Keep every field short: headline max 25 words, each list item max 18 words, each amendment field max 30 words.
 headline: one sentence summarizing how residents react.
 most_affected: up to 4 items, formatted as "<group>: <the concrete harm THIS ordinance causes them>, avg impact <number from the data>".
 top_loopholes: up to 4 items, the most realistic ways the ordinance would be evaded or misread.
 amendments: up to 3. clause = which section or provision to change; change = the exact new or added wording, ready to paste; reason = which group or loophole it fixes.
+Answer only in the JSON schema.`
+
+// Used instead of REPORT_SYSTEM when the brief finds the ordinance targets identity or is likely
+// unconstitutional. A small model asked to "improve" such a draft will happily help enforce it
+// (it once proposed how to identify LGBTQ+ people), so this is decided in code, not by the model.
+export const REPORT_UNLAWFUL_SYSTEM = `You are a legislative analyst advising a Philippine city councilor.
+This draft ordinance FAILED the legal and ethical check: it likely violates the Constitution and/or punishes people for who they are.
+Your job is NOT to improve, clarify, or enforce it. Never propose definitions, ways to identify people, penalties, or enforcement for what it targets.
+You also get results from a SIMULATION of residents (not a real survey).
+Keep every field short: headline max 25 words, each list item max 20 words, each amendment field max 30 words.
+headline: say plainly that the draft is likely unconstitutional or discriminatory and should not be passed; mention how residents reacted.
+most_affected: up to 4 items, "<group>: <how this draft harms them>" (the people targeted, their families, enforcers exposed to lawsuits, the city).
+top_loopholes: up to 4 items, but list LEGAL PROBLEMS instead: the specific rights or laws it violates, citing only the facts given.
+amendments: up to 3. The first must be: clause "Entire ordinance", change "Withdraw this draft; do not pass it.", reason = the main legal problem. Then up to 2 lawful alternatives that address any legitimate concern without targeting anyone's identity (for example, an ordinance against harassment or discrimination consistent with the Safe Spaces Act).
 Answer only in the JSON schema.`
 
 // Shrink crowd results into counts + a few quotes so the prompt stays small (never all 200 answers).
@@ -226,7 +320,17 @@ function groupLines(map, limit, minN = 1) {
 
 const clip = (s = '', n) => (s.length > n ? s.slice(0, n) + '...' : s)
 
-export function reportUser(ordinance, summary, panelAnswers) {
+// The brief's legal and ethical check, compact enough for the report's 2048-token context.
+export function legalCheckText(b) {
+  if (!b) return ''
+  return `Legal and ethical check:
+- Punishes people for who they are: ${b.targets_identity ? 'YES' : 'no'}
+- Rights and laws: ${b.rights_issues}
+- Penalty: ${b.penalty_check}
+- Legality: ${b.legality}${b.known_facts?.length ? `\nRelevant facts:\n${b.known_facts.slice(0, 2).map(f => '- ' + clip(f, 220)).join('\n')}` : ''}`
+}
+
+export function reportUser(ordinance, summary, panelAnswers, legalCheck = '') {
   const jobs = groupLines(summary.byJob, 5)
   const details = groupLines(summary.byDetail, 4, 3)
   const panel = panelAnswers
@@ -235,7 +339,7 @@ export function reportUser(ordinance, summary, panelAnswers) {
     .join('\n')
   return `Ordinance:
 ${ordinance}
-
+${legalCheck ? `\n${legalCheck}\n` : ''}
 Simulated crowd: ${summary.total} residents
 Stance: ${summary.stance.support} support, ${summary.stance.mixed} mixed, ${summary.stance.oppose} oppose
 Compliance: ${summary.comply.comply} comply, ${summary.comply.partial} partial, ${summary.comply.evade} evade
@@ -249,5 +353,5 @@ Panel:
 ${panel}
 
 Sample quotes:
-${summary.quotes.map(q => '- ' + q).join('\n')}`
+${summary.quotes.slice(0, 3).map(q => '- ' + q).join('\n')}`
 }

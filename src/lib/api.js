@@ -8,9 +8,9 @@ import { PANEL } from './panel.js'
 import { SAMPLES } from './samples.js'
 import { briefSchema, crowdSchema, panelSchema, reportSchema } from './schemas.js'
 import {
-  BRIEF_SYSTEM, briefUser, briefText,
+  BRIEF_SYSTEM, briefUser, briefText, checkBrief,
   CROWD_SYSTEM, crowdUser, PANEL_SYSTEM, LOOPHOLE_SYSTEM_EXTRA, panelUser,
-  REPORT_SYSTEM, reportUser, summarizeCrowd, cleanQuote
+  REPORT_SYSTEM, REPORT_UNLAWFUL_SYSTEM, reportUser, summarizeCrowd, cleanQuote, legalCheckText, reconcile
 } from './prompts.js'
 
 // 200 seeded adult residents (same every run), national approximate mix. Smaller runs use
@@ -36,8 +36,8 @@ export { SAMPLES }
 const briefCache = new Map()
 export function getBrief(ordinanceText) {
   if (!briefCache.has(ordinanceText)) {
-    const p = chat({ system: BRIEF_SYSTEM, user: briefUser(ordinanceText), schema: briefSchema, numPredict: 350, temperature: 0.2 })
-      .catch(() => chat({ system: BRIEF_SYSTEM, user: briefUser(ordinanceText), schema: briefSchema, numPredict: 350, temperature: 0.2 }))
+    const call = () => chat({ system: BRIEF_SYSTEM, user: briefUser(ordinanceText), schema: briefSchema, numPredict: 650, temperature: 0.2 })
+    const p = call().catch(call).then(b => checkBrief(b, ordinanceText))
     briefCache.set(ordinanceText, p)
     p.catch(() => briefCache.delete(ordinanceText))   // don't cache failures
   }
@@ -56,14 +56,15 @@ async function briefOrText(ordinanceText) {
 
 // ---------- Crowd ----------
 // onResult(index, persona, reaction) as each resident finishes.
-// reaction: { touches_me, effect, impact, stance, comply, quote } or { error: true } after 2 failed tries.
+// reaction: { touches_me, effect, impact, judgment, stance, comply, quote, adjusted? } or { error: true }
+// after 2 failed tries. adjusted: true when the contradiction checker corrected the stance.
 // Resolves to the array of reactions in persona order.
 export async function runCrowd(ordinanceText, size, onResult, signal) {
   const personas = PERSONAS_200.slice(0, size)
   const brief = await briefOrText(ordinanceText)
   const tasks = personas.map(p => async s => {
-    const r = await chat({ system: CROWD_SYSTEM, user: crowdUser(p, brief), schema: crowdSchema, signal: s })
-    return { ...r, quote: cleanQuote(r.quote) }
+    const r = await chat({ system: CROWD_SYSTEM, user: crowdUser(p, brief), schema: crowdSchema, numPredict: 160, signal: s })
+    return reconcile({ ...r, quote: cleanQuote(r.quote) })
   })
   const results = await runPool(tasks, {
     concurrency: 2,
@@ -113,7 +114,9 @@ export async function runPanel(ordinanceText, onToken, onDone, signal) {
 // crowdResults: array of reactions in persona order (what runCrowd returns), or
 //               array of { persona, reaction } / sparse arrays; all are accepted.
 // panelResults: { [personaId]: result } (what runPanel returns) or an array of results.
-// Returns { headline, most_affected[], top_loopholes[], amendments[{ clause, change, reason }] }.
+// Returns { headline, most_affected[], top_loopholes[], amendments[{ clause, change, reason }],
+//           verdict: 'revise' | 'withdraw', legality: 'likely valid' | 'questionable' | 'likely unconstitutional' }.
+// verdict 'withdraw' = the draft failed the legal/ethical check; top_loopholes then lists legal problems.
 export async function runReport(ordinanceText, crowdResults, panelResults) {
   const reactions = Array.from(crowdResults, x => {
     const r = x?.reaction ?? x
@@ -127,8 +130,18 @@ export async function runReport(ordinanceText, crowdResults, panelResults) {
     return { name: p.name, role: p.role, answer: a && !a.error && a.loophole ? a : null }
   })
 
-  const user = reportUser(ordinanceText, summary, panelAnswers)
-  const call = temperature => chat({ system: REPORT_SYSTEM, user, schema: reportSchema, numPredict: 650, temperature })
+  // Legal and ethical check decides which report prompt runs (see REPORT_UNLAWFUL_SYSTEM).
+  let brief = null
+  try { brief = await getBrief(ordinanceText) } catch (err) { if (err.message?.startsWith('Ollama not running')) throw err }
+  const unlawful = !!brief && (brief.targets_identity === true || brief.legality === 'likely unconstitutional')
+  const legal = legalCheckText(brief)
+  const user = reportUser(ordinanceText, summary, panelAnswers, legal)
+  const system = unlawful ? REPORT_UNLAWFUL_SYSTEM : REPORT_SYSTEM
+  const call = async temperature => ({
+    ...(await chat({ system, user, schema: reportSchema, numPredict: 650, temperature })),
+    verdict: unlawful ? 'withdraw' : 'revise',
+    legality: brief?.legality ?? 'unknown'
+  })
   try {
     return await call(0.4)
   } catch (err) {

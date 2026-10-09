@@ -14,9 +14,17 @@ export const briefSchema = {
     what_changes: { type: 'string' },
     where_when: { type: 'string' },
     penalty: { type: 'string' },
-    exemptions: { type: 'string' }
+    exemptions: { type: 'string' },
+    // Legal and ethical check, so residents judge whether a rule is RIGHT, not only whether it touches them.
+    targets_identity: { type: 'boolean' },
+    rights_issues: { type: 'string' },
+    penalty_check: { type: 'string' },
+    public_benefit: { type: 'string' },
+    legality: { enum: ['likely valid', 'questionable', 'likely unconstitutional'] },
+    known_facts: { type: 'array', items: { type: 'string' }, maxItems: 3 }
   },
-  required: ['summary', 'who_must_change', 'what_changes', 'where_when', 'penalty', 'exemptions']
+  required: ['summary', 'who_must_change', 'what_changes', 'where_when', 'penalty', 'exemptions',
+    'targets_identity', 'rights_issues', 'penalty_check', 'public_benefit', 'legality', 'known_facts']
 }
 
 // `touches_me` is a categorical first step: does this ordinance reach my actual daily life?
@@ -26,11 +34,14 @@ export const crowdSchema = {
     touches_me: { enum: ['directly', 'indirectly', 'not really'] },
     effect: { type: 'string', maxLength: 90 },
     impact: { type: 'integer', minimum: 1, maximum: 5 },
+    // Moral/practical verdict before the stance: a small model follows a stance rule far better
+    // once it has committed to a short judgment (same trick as touches_me).
+    judgment: { enum: ['good rule', 'good rule but costly for me', 'unfair or harmful', 'pointless'] },
     stance: { enum: ['support', 'mixed', 'oppose'] },
     comply: { enum: ['comply', 'partial', 'evade'] },
     quote: { type: 'string', maxLength: 120 }
   },
-  required: ['touches_me', 'effect', 'impact', 'stance', 'comply', 'quote']
+  required: ['touches_me', 'effect', 'impact', 'judgment', 'stance', 'comply', 'quote']
 }
 
 // Same idea as the crowd: reason about life impact before picking a stance.
