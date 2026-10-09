@@ -14,7 +14,7 @@ import {
   REPORT_SYSTEM, REPORT_UNLAWFUL_SYSTEM, reportUser, summarizeCrowd, cleanQuote, legalCheckText, reconcile,
   findContradiction, neighborsDigest, fairnessLens, missingSections, affectedGroupsFor,
   relevantDetails, pickIssue, tidyEnd, clusterInsights, bystanderEffect, words, jaccard,
-  SUMMARY_SYSTEM, summaryUser, quickSummary, cleanWhy
+  SUMMARY_SYSTEM, summaryUser, quickSummary, composeWhy
 } from './prompts.js'
 
 // 200 seeded adult residents (same every run), national approximate mix. Smaller runs use
@@ -36,7 +36,7 @@ export { SAMPLES }
 
 // ---------- Run cache ----------
 // Bump on any prompt, schema, or persona change: cached and saved answers from an older engine are ignored.
-export const ENGINE_VERSION = '2026-10-10.2'
+export const ENGINE_VERSION = '2026-10-10.3'
 const cacheKey = () => ({ version: ENGINE_VERSION, model: MODEL })
 const savedIdFor = text => SAMPLES.find(s => s.text === text)?.id
 const stripSource = r => { if (!r || typeof r !== 'object') return r; const { source, ...rest } = r; return rest }
@@ -155,9 +155,9 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
     ...r,
     effect: plan[i].touched ? tidyEnd(r.effect, 130) : bystanderEffect(plan[i].rel, lawful),
     impact: plan[i].touched ? r.impact : Math.min(r.impact, 2),
-    why: cleanWhy(r.why),
+    why: composeWhy(r.helps, r.hurts),
     insight: plan[i].touched && r.touches_me !== 'not really' ? tidyEnd((r.insight || '').replace(/[<>]/g, ''), 170) : '',
-    quote: cleanQuote(tidyEnd(r.quote, 150))
+    quote: cleanQuote(tidyEnd(r.quote, 140))
   }))
   // Answers that still fail after the re-ask don't ship their bad text: a failing effect becomes the
   // code-written line and a failing insight is dropped (the quote stays; the UI needs one).
@@ -165,7 +165,7 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
     if (!check(r, p)) return r
     const blank = { ...r, effect: '', insight: '' }
     if (check(blank, p)) return r     // the problem is in the quote or labels; reconcile() handles labels
-    const ok = f => !check({ ...blank, [f]: r[f] })
+    const ok = f => !check({ ...blank, [f]: r[f] }, p)
     return { ...r, effect: ok('effect') ? r.effect : bystanderEffect(plan[i].rel, lawful), insight: ok('insight') ? r.insight : '', flagged: true }
   }
   const tasks = personas.map((p, i) => async s => {

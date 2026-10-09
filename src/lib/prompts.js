@@ -110,14 +110,20 @@ touches_me: "directly" = it restricts something I personally do, own, sell, or a
 effect: plain English, max 15 words, what concretely changes in MY week. Name the specific thing (my cigarettes, my stall's plastic bags, my teenager's nights out, my street parking). If "not really", say so.
 impact: 1 = barely affects my day, 2 = small hassle, 3 = noticeable cost, time, or habit change, 4 = cuts my income or adds big costs, 5 = threatens my livelihood.
   "not really" means impact 1 or 2. If it restricts how I EARN my living, 4 or 5. If it restricts a personal habit of mine, 3 or 4.
-why: my private reasoning in plain English, max 15 words, NOT a quote and no opener. Think about the "Situation" given (or my own case): what this rule does to those people, and whether that is right, fair, and workable. Name the people and the act.
-judgment: decide like a thoughtful, decent, informed Filipino adult, using the "Legal and ethical check":
-  "good rule" = lawful, fair, and does real good (health, safety, children, cleanliness), at little cost to me.
-  "good rule but costly for me" = lawful and useful, but it costs me money, time, or a habit (impact 3 or more).
+Before judging, weigh both sides. Think about the "Situation" given (or my own case), not the title:
+helps: a short English phrase, NOT a sentence, 4 to 8 words: WHO gains and HOW. "No one" if it does no real good.
+hurts: a short English phrase, NOT a sentence, 4 to 8 words: WHO loses and HOW. "No one" if nobody loses anything real.
+  Phrase shape only (for a different rule, a tricycle ban): helps "pedestrians cross the highway safely", hurts "tricycle drivers lose highway fares".
+  Name specific people from the Situation or my own life, never "the community", "vulnerable groups", or "everyone".
+  No filler ("This is good", "really", "I think", "hopefully"). Only people this ordinance really reaches.
+judgment: weigh helps against hurts like a thoughtful, decent, informed Filipino adult, using the "Legal and ethical check":
+  "good rule" = lawful, fair, and does real good (health, safety, children, cleanliness), and what it hurts is small or fair.
+  "good rule but costly" = lawful and useful, but it costs me money, time, or a habit (impact 3 or more), OR it puts a serious burden on the people in hurts (lost income, fines on people who did nothing wrong, harassment by enforcers).
+  Being stopped from discriminating, refusing service, littering, or harming others is NOT a cost; that is the point of the rule.
   "unfair or harmful" = punishes people for who they are, jails people for harmless acts, uses excessive penalties, or is likely unconstitutional. This is wrong even if it does not touch me.
   "pointless" = will not really work or cannot be enforced.
 stance: follow my judgment.
-  "good rule" -> support. "good rule but costly for me" -> mixed, or oppose if it cuts my income (impact 4-5). "unfair or harmful" -> oppose. "pointless" -> mixed or oppose.
+  "good rule" -> support. "good rule but costly" -> mixed, or oppose if it cuts my income (impact 4-5). "unfair or harmful" -> oppose. "pointless" -> mixed or oppose.
   If the ordinance PROTECTS me or my family, my judgment is "good rule".
   Values shape the degree: traditional residents are stricter on curfews and discipline, progressive residents care more about personal freedom; but everyone respects human dignity and the Constitution.
 comply: "comply" = follow it fully; "partial" = only when enforcers are watching; "evade" = find a way around it.
@@ -129,7 +135,7 @@ insight (only when the schema asks for it): one plain English sentence, max 20 w
   Work from the "Insight angle" you are given and from my own situation; name the section or exact word when you can.
   Never a generic wish any resident could say ("explain it well", "enforce it fairly", "it is good for everyone").
 FAMILY: only mention family members listed under "Home". Never give relatives names. If I live alone or have no children, never talk about my anak or apo.
-quote: ONE Taglish sentence (Tagalog mixed with English, max 15 words), what I would tell a neighbor, in my voice, on the same point as my why but in different words. Begin with the opener you are given.
+quote: ONE short Taglish sentence (Tagalog mixed with English, max 12 words), what I would tell a neighbor, in my voice, on the side of helps or hurts that matters most to me. Begin with the opener you are given.
   If it touches me, say how, naming the specific thing it restricts in my life.
   If it does not touch me, do NOT say I am unaffected and do NOT say "we must follow it for the barangay"; speak from my angle instead, concretely.
   If the rule is wrong, say WHY in plain words (e.g. it punishes people for who they are, it is against the Constitution, the penalty is too harsh).
@@ -151,15 +157,23 @@ const CONCERN = /nakakabahala|kotong|lumala|magkagulo|sayang lang|walang silbi|h
 export function reconcile(r, lawful = false) {
   if (!r || !r.judgment) return r
   let { stance, judgment, comply } = r
-  if (judgment === 'good rule but costly for me' && r.impact <= 2) judgment = 'good rule'   // impact 1-2 names no real cost
-  if (lawful && judgment === 'unfair or harmful') { judgment = r.impact >= 3 ? 'good rule but costly for me' : 'pointless'; stance = stance === 'support' ? 'mixed' : stance }
+  if (judgment === 'good rule but costly' && r.impact <= 2 && !othersBurden(r.hurts)) judgment = 'good rule'   // impact 1-2 names no real cost
+  if (lawful && judgment === 'unfair or harmful') { judgment = r.impact >= 3 ? 'good rule but costly' : 'pointless'; stance = stance === 'support' ? 'mixed' : stance }
   // Only residents with a real stake; "walang problema" is negated, not a concern.
   if (stance === 'support' && r.impact >= 3 && mentions(r.quote || '', CONCERN) && !/\bpero\b|\bbut\b/i.test(r.quote || '')) stance = 'mixed'
   // The stance follows the reasoning: "It's a hassle / annoying / overreach" is not plain support.
-  if (stance === 'support' && /annoying|hassle|a pain\b|worrying|inconvenient|overreach|a bit much|too much|nakakainis|abala/i.test(r.why || '')) stance = 'mixed'
+  // (Only the resident's own costs: every resident now names who loses, and supporters may weigh that.)
+  if (stance === 'support' && r.impact >= 3 && /annoying|hassle|a pain\b|overreach|a bit much|too much|nakakainis|abala/i.test(r.hurts ?? r.why ?? '')) stance = 'mixed'
+  // The stance follows the weighing: a good rule whose cost, by the resident's own account, is nothing or
+  // minor is support (SOGIESC residents wrote "protects LGBTQ+ people; no one loses", judged it good, said
+  // mixed). A serious burden on others (fines, lost income, harassment) keeps a considered "mixed".
+  if (judgment === 'good rule' && stance === 'mixed' && 'hurts' in r && !isNone(r.helps) && r.impact <= 2 && !othersBurden(r.hurts)) stance = 'support'
+  // The stance follows the weighing: a good rule that, by the resident's own account, hurts no one is
+  // support (SOGIESC residents wrote "protects LGBTQ+ people; no one loses", judged it good, said mixed).
+  if (judgment === 'good rule' && stance === 'mixed' && 'hurts' in r && isNone(r.hurts) && !isNone(r.helps)) stance = 'support'
   if (judgment === 'unfair or harmful') stance = 'oppose'
   else if (judgment === 'good rule' && stance === 'oppose' && r.impact <= 2) judgment = 'pointless'
-  else if (judgment === 'good rule but costly for me' && stance === 'support' && r.impact >= 4) stance = 'mixed'
+  else if (judgment === 'good rule but costly' && stance === 'support' && r.impact >= 4) stance = 'mixed'
   if (r.touches_me === 'not really' && comply === 'partial' && judgment !== 'unfair or harmful') comply = 'comply'
   const same = stance === r.stance && judgment === r.judgment && comply === r.comply
   return same ? r : { ...r, stance, judgment, comply, adjusted: true }
@@ -307,6 +321,8 @@ export function findContradiction(r, persona, brief = '', affected = null, ordin
     return `this ordinance touches ${rel.yes[0] || 'your work as a ' + persona.job}; say how it changes your week`
   }
   if (r.stance === 'support' && /waste of time|walang silbi|fuss over nothing|pointless|useless|won['’]?t (work|change anything)|just (talk|more (paperwork|rules))/i.test(r.why || '')) return 'your reasoning says the rule is pointless, yet your stance is support'
+  if ('helps' in r && r.stance === 'support' && isNone(r.helps)) return 'you said the rule helps no one, yet your stance is support'
+  if ('helps' in r && r.judgment === 'unfair or harmful' && isNone(r.hurts)) return 'you called it unfair or harmful, yet said it hurts no one; name who it harms'
   if (r.judgment === 'unfair or harmful' && r.stance !== 'oppose') return `you judged it unfair or harmful, yet your stance is ${r.stance}`
   if (r.judgment === 'good rule' && r.stance === 'oppose' && r.impact <= 2) return 'you called it a good rule that costs you little, yet you oppose it'
   if (!/\bpero\b|\bbut\b/i.test(r.quote)) {
@@ -323,8 +339,25 @@ const INTERJECTION = /^(ay naku|ay nako|naku|nako|ay|uy|hay|hay naku|grabe|ano b
 // all start with a stock phrase; a tag-on "di ba?" (in 40 of 120 quotes) goes too.
 const OPENER_RE = new RegExp('^(' + OPENERS.map(o => o.replace(/,$/, '')).join('|') + '),?\\s*', 'i')
 export const cleanWhy = w => tidyEnd(String(w || '').trim().replace(OPENER_RE, '').replace(/^W+/, '').replace(/^./, c => c.toUpperCase()), 160)
+// The model weighs two short sides (helps / hurts); code joins them into the reasoning line.
+// Free-text "why" rambled past its cap ("It's a bother, really…") and named no trade-off.
+// A bystander's "costly" stands only for a serious, legitimate burden on others (not losing the
+// freedom to discriminate: SOGIESC went 1/23/0 when "businesses can't refuse customers" counted).
+const SERIOUS = /fine|income|lose|lost|sales|livelihood|harass|arrest|jail|suspicion|scrutin|kotong|extort|profil|stopped|questioned/i
+const WRONGDOER = /refus|discriminat|turn(ing)? away|deny|denying|reject|litter|throw|dump|smok|vap/i
+const othersBurden = s => !isNone(s) && SERIOUS.test(s) && !WRONGDOER.test(s)
+export const isNone = s => !s || /^(no ?one|nobody|none|nothing|n\/a|wala)\b/i.test(String(s).trim())
+const side = s => tidyEnd(String(s || '').trim().replace(/^(it )?(helps|hurts|costs)\s*:?\s*/i, '').replace(/[.\s]+$/, ''), 70)
+export function composeWhy(helps, hurts) {
+  const h = side(helps), c = side(hurts), cap = s => s.charAt(0).toUpperCase() + s.slice(1)
+  const low = s => /^I\b/.test(s) ? s : s.replace(/^./, x => x.toLowerCase())
+  if (isNone(h) && isNone(c)) return 'Changes little for anyone.'
+  if (isNone(h)) return `Helps no one, while ${low(c)}.`
+  if (isNone(c)) return `${cap(h)}; no one really loses.`
+  return `${cap(h)}, but ${low(c)}.`.replace(/(^|\s)i(?=\s|['’])/g, '$1I')
+}
 export function cleanQuote(q = '') {
-  let s = q.trim().replace(/^["'‘’“”\s]+|["'‘’“”\s,]+$/g, '').replace(/["“”]\s*,?\s*["“”]?.*$/, '').trim()
+  let s = q.trim().replace(/\s*\((if|it|this|i|in english|translation)\b[^)]*\)?\s*$/i, '').replace(/^["'‘’“”\s]+|["'‘’“”\s,]+$/g, '').replace(/["“”]\s*,?\s*["“”]?.*$/, '').trim()
   const noOpener = s.replace(OPENER_RE, '').replace(/^(['‘’]?di ?ba\??|po)[,!?\s]+/i, '').replace(/[,\s]*['‘’]?di ?ba\??\s*[.!?]?$/i, '').trim()
   if (noOpener.split(/\s+/).length >= 4) s = noOpener
   const stripped = s.replace(INTERJECTION, '')

@@ -45,21 +45,25 @@ export const crowdSchema = {
     // loose; the real word limits live in the prompt and tidyEnd() cleans any cut.
     effect: { type: 'string', maxLength: 130 },
     impact: { type: 'integer', minimum: 1, maximum: 5 },
-    // Everyone reasons in words before judging: what the rule does to the people in their situation,
-    // and whether that is right. Without it, untouched residents judged from the title alone.
-    why: { type: 'string', maxLength: 160 },
+    // Everyone weighs both sides before judging: who the rule helps and who it costs, in a few words
+    // each. Without it, untouched residents judged from the title alone; a single free-text "why"
+    // rambled past its cap and named no trade-off. Code joins them into the reasoning line (why).
+    helps: { type: 'string', maxLength: 70 },
+    hurts: { type: 'string', maxLength: 70 },
     // Moral/practical verdict before the stance: a small model follows a stance rule far better
     // once it has committed to a short judgment (same trick as touches_me).
-    judgment: { enum: ['good rule', 'good rule but costly for me', 'unfair or harmful', 'pointless'] },
+    judgment: { enum: ['good rule', 'good rule but costly', 'unfair or harmful', 'pointless'] },
     stance: { enum: ['support', 'mixed', 'oppose'] },
     comply: { enum: ['comply', 'partial', 'evade'] },
     // One concrete, actionable point for the lawmaker (implementation problem, side effect,
     // needed exemption, missing definition, support measure). The quote is the human voice;
     // this is the part a councilor can act on.
     insight: { type: 'string', maxLength: 170 },
-    quote: { type: 'string', maxLength: 150 }
+    // No quotation marks: the model "closed" its quote with ” and then padded ', , , ,' up to the cap
+    // (about 30 wasted tokens a call). The pattern also bounds the length.
+    quote: { type: 'string', pattern: '^[^"“”]{1,140}$' }
   },
-  required: ['touches_me', 'effect', 'impact', 'why', 'judgment', 'stance', 'comply', 'insight', 'quote']
+  required: ['touches_me', 'effect', 'impact', 'helps', 'hurts', 'judgment', 'stance', 'comply', 'insight', 'quote']
 }
 
 // Residents the ordinance doesn't touch skip the insight (their generic advice drowned out the affected
