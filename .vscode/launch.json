@@ -1,0 +1,15 @@
+{
+  // F5: start Vite, open the app in Edge with the debugger attached, stop Vite when debugging ends.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run LawGetherness",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "Vite dev server",
+      "postDebugTask": "Stop dev server"
+    }
+  ]
+}

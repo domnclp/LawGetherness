@@ -1,0 +1,36 @@
+{
+  // Starts the Vite dev server in the background. F5 waits for "ready" before opening the browser.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Vite dev server",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": { "regexp": "^__never_matches__$" },
+        "background": {
+          "activeBegins": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "ready in"
+        }
+      }
+    },
+    {
+      // Runs after debugging stops so the dev server doesn't linger.
+      "label": "Stop dev server",
+      "type": "shell",
+      "command": "echo ${input:terminateVite}",
+      "presentation": { "reveal": "never" }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "terminateVite",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "Vite dev server"
+    }
+  ]
+}
