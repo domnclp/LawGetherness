@@ -12,6 +12,19 @@
    },
    "gray": 0,
    "verdict": "revise"
+  },
+  "sogiesc": {
+   "version": "2026-10-10.1",
+   "model": "gemma3:4b",
+   "size": 200,
+   "created": "2026-10-09T21:57:44.548Z",
+   "split": {
+    "support": 129,
+    "mixed": 63,
+    "oppose": 7
+   },
+   "gray": 1,
+   "verdict": "revise"
   }
  }
 }
