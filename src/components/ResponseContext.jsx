@@ -1,5 +1,5 @@
 export default function ResponseContext({ mode, draft, runDraft, person, reaction }) {
-  if (mode !== 'live') return <p className="response-context-note">Sample responses illustrate the interface. Run a simulation to generate reactions to your ordinance.</p>
+  if (mode !== 'live') return null
   const stale = draft !== runDraft
   return <details className="response-context">
     <summary>{stale ? 'These responses belong to an earlier draft' : 'What are these responses based on?'}</summary>
