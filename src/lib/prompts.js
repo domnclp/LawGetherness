@@ -164,13 +164,12 @@ export function reconcile(r, lawful = false) {
   // The stance follows the reasoning: "It's a hassle / annoying / overreach" is not plain support.
   // (Only the resident's own costs: every resident now names who loses, and supporters may weigh that.)
   if (stance === 'support' && r.impact >= 3 && /annoying|hassle|a pain\b|overreach|a bit much|too much|nakakainis|abala/i.test(r.hurts ?? r.why ?? '')) stance = 'mixed'
-  // The stance follows the weighing: a good rule whose cost, by the resident's own account, is nothing or
-  // minor is support (SOGIESC residents wrote "protects LGBTQ+ people; no one loses", judged it good, said
-  // mixed). A serious burden on others (fines, lost income, harassment) keeps a considered "mixed".
-  if (judgment === 'good rule' && stance === 'mixed' && 'hurts' in r && !isNone(r.helps) && r.impact <= 2 && !othersBurden(r.hurts)) stance = 'support'
-  // The stance follows the weighing: a good rule that, by the resident's own account, hurts no one is
-  // support (SOGIESC residents wrote "protects LGBTQ+ people; no one loses", judged it good, said mixed).
-  if (judgment === 'good rule' && stance === 'mixed' && 'hurts' in r && isNone(r.hurts) && !isNone(r.helps)) stance = 'support'
+  // The stance follows the weighing: a good rule that, by the resident's own account, hurts no one, or
+  // costs only something minor, is support (SOGIESC residents wrote "protects LGBTQ+ people; no one
+  // loses", judged it good, said mixed). A serious burden on others (fines, lost income, harassment)
+  // keeps a considered "mixed".
+  if (judgment === 'good rule' && stance === 'mixed' && 'hurts' in r && !isNone(r.helps)
+    && (isNone(r.hurts) || (r.impact <= 2 && !othersBurden(r.hurts)))) stance = 'support'
   if (judgment === 'unfair or harmful') stance = 'oppose'
   else if (judgment === 'good rule' && stance === 'oppose' && r.impact <= 2) judgment = 'pointless'
   else if (judgment === 'good rule but costly' && stance === 'support' && r.impact >= 4) stance = 'mixed'
