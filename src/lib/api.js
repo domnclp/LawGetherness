@@ -11,7 +11,7 @@ import {
   BRIEF_SYSTEM, briefUser, briefText, checkBrief,
   CROWD_SYSTEM, crowdUser, PANEL_SYSTEM, LOOPHOLE_SYSTEM_EXTRA, panelUser,
   REPORT_SYSTEM, REPORT_UNLAWFUL_SYSTEM, reportUser, summarizeCrowd, cleanQuote, legalCheckText, reconcile,
-  findContradiction, neighborsDigest, fairnessLens, missingSections
+  findContradiction, neighborsDigest, fairnessLens, missingSections, affectedGroupsFor
 } from './prompts.js'
 
 // 200 seeded adult residents (same every run), national approximate mix. Smaller runs use
@@ -65,8 +65,9 @@ const lastCrowd = new Map()   // ordinance text -> { personas, results }, so run
 export async function runCrowd(ordinanceText, size, onResult, signal) {
   const personas = PERSONAS_200.slice(0, size)
   const brief = await briefOrText(ordinanceText)
+  const affected = affectedGroupsFor(ordinanceText)   // occupation groups whose work this ordinance touches
   const ask = (p, s, note = '') => chat({
-    system: CROWD_SYSTEM, user: crowdUser(p, brief) + note, schema: crowdSchema, numPredict: 160, signal: s
+    system: CROWD_SYSTEM, user: crowdUser(p, brief, affected) + note, schema: crowdSchema, numPredict: 200, signal: s
   }).then(r => reconcile({ ...r, quote: cleanQuote(r.quote) }))
   const tasks = personas.map(p => async s => {
     const first = await ask(p, s)

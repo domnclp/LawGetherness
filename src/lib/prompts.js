@@ -109,7 +109,17 @@ stance: follow my judgment.
 comply: "comply" = follow it fully; "partial" = only when enforcers are watching; "evade" = find a way around it.
   For fair rules, if impact is 1 or 2, I comply fully unless I distrust officials. Many who dislike a rule still comply out of fear of the penalty.
   For a rule that is wrong, I would not help enforce it; people targeted by it would evade it.
-quote: ONE Taglish sentence (Tagalog mixed with English, max 15 words), what I would tell a neighbor, in my voice.
+STAY ON TOPIC: only talk about things this ordinance actually changes. You are told whether your WORK is affected.
+  If my work is NOT affected, never mention my job, my cooking, my shift, my farm, my stall, or my route; react as a resident, parent, neighbor, consumer, or citizen.
+insight: plain English, max 20 words. ONE concrete point the councilor can act on, drawn from my real situation:
+  a practical problem in carrying it out, a side effect nobody intended, a group that needs an exemption or transition time,
+  a vague word that needs a definition, or a support measure that would make it work. Name who, what, and why.
+  It must be specific to THIS ordinance. Generic advice ("explain it well", "enforce it fairly", "it is good for everyone") is useless; never write it.
+  Example insights (other ordinances, form only, never copy):
+  - "Boundary drivers lose the 6-9 AM school trips; allow tricycles on the highway until 9 AM."
+  - "Vendors cannot tell where the 100-meter zone ends; paint the boundary on the road."
+  - "Most stalls have no trash bins; install bins before fining people for littering."
+quote: ONE Taglish sentence (Tagalog mixed with English, max 15 words), what I would tell a neighbor, in my voice, on the same point as my insight or effect.
   If it touches me, say how, naming the specific thing (my cigarettes, my bags, my anak, my parking).
   If it does not touch me, do NOT say I am unaffected and do NOT say "we must follow it for the barangay"; speak from my angle instead, concretely.
   If the rule is wrong, say WHY in plain words (e.g. it punishes people for who they are, it is against the Constitution, the penalty is too harsh).
@@ -246,13 +256,46 @@ function factLines({ yes, no, protects }, noneLine) {
 }
 
 // brief: plain-language ordinance text (briefText output), or the raw ordinance as fallback.
-export function crowdUser(r, brief) {
+// Which occupation groups' WORK an ordinance touches, decided in code from its text. The model was
+// asked to pick these once and returned ["unemployed", "unemployed", "unemployed"] for a curfew.
+const GROUP_TOPICS = [
+  ['farmer', /\bfarm|agricultur|crop|pesticide|irrigation|harvest/i],
+  ['fisherfolk', /fishing|fisherfolk|fishermen|fisherman|coastal|\bboats?\b/i],
+  ['construction worker', /construction|building permit|demolition|scaffold/i],
+  ['factory worker', /factor(y|ies)|industrial|manufactur/i],
+  ['vendor / store worker', /plastic bag|\bbags?\b|vendor|\bstores?\b|retail|sari-sari|\bstalls?\b|\bmarkets?\b|\bsell(ing|ers?)?\b/i],
+  ['government employee', /enforc|tanod|police|public safety|DPOS|barangay official/i],
+  ['driver', /tricycle|jeepney|vehicle|\bdrivers?\b|motorist|traffic|idl(e|ing)|transport|\bpark(ing)?\b/i],
+  ['food service worker', /restaurant|cutlery|carinderia|disposable|single-use|eater(y|ies)|hotel|fast-food|food service/i],
+  ['service worker', /salon|repair|kasambahay|household help/i],
+  ['BPO / admin worker', /\bBPO\b|call cent|night shift/i],
+  ['health worker / professional', /health cent|hospital|clinic|\bnurses?\b|medical/i]
+]
+const NO_WORK = new Set(['unemployed', 'student', 'homemaker', 'senior / retiree'])
+
+export function affectedGroupsFor(text = '') {
+  return GROUP_TOPICS.filter(([, re]) => re.test(text)).map(([g]) => g)
+}
+
+// true / false for workers; null for people without a job (no "my work" line at all).
+export function workAffected(r, affectedGroups) {
+  if (!Array.isArray(affectedGroups) || NO_WORK.has(r.group)) return null
+  return affectedGroups.includes(r.group)
+}
+
+export function crowdUser(r, brief, affectedGroups = null) {
   const rel = relevantDetails(r.details, brief, r.job)
-  const { yes } = rel
-  const touch = factLines(rel, 'So this ordinance restricts nothing I personally do, unless my job is named in "Who must change".')
+  const work = workAffected(r, affectedGroups)
+  const touched = rel.yes.length > 0 || work === true
+  const workLine = work === true
+    ? `My work as a ${r.job} IS directly affected by this ordinance; say how it changes my work.`
+    : work === false
+      ? `My work as a ${r.job} is NOT affected by this ordinance. Do not talk about my job; react as a resident, parent, neighbor, consumer, or citizen.`
+      : ''
+  const touch = factLines(rel, work === true ? '' : 'So this ordinance restricts nothing I personally do.')
   return `Resident: ${r.age}-year-old ${r.job} (${r.employment}), monthly income: ${r.income}, commutes by ${r.commute}, household of ${r.household}, Purok ${r.purok}.
-${touch}
-Values: ${r.values}. Outlook: ${r.outlook}. Voice: ${r.voice}.${yes.length ? '' : `\nMy angle on rules that don't touch me: ${r.angle}.`}
+${[workLine, touch].filter(Boolean).join('\n')}
+Values: ${r.values}. Outlook: ${r.outlook}. Voice: ${r.voice}.${touched ? '' : `\nMy angle on rules that don't touch me: ${r.angle}.`}
 Ordinance in plain words:
 ${brief}`
 }

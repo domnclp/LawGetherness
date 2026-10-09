@@ -39,9 +39,13 @@ export const crowdSchema = {
     judgment: { enum: ['good rule', 'good rule but costly for me', 'unfair or harmful', 'pointless'] },
     stance: { enum: ['support', 'mixed', 'oppose'] },
     comply: { enum: ['comply', 'partial', 'evade'] },
+    // One concrete, actionable point for the lawmaker (implementation problem, side effect,
+    // needed exemption, missing definition, support measure). The quote is the human voice;
+    // this is the part a councilor can act on.
+    insight: { type: 'string', maxLength: 140 },
     quote: { type: 'string', maxLength: 120 }
   },
-  required: ['touches_me', 'effect', 'impact', 'judgment', 'stance', 'comply', 'quote']
+  required: ['touches_me', 'effect', 'impact', 'judgment', 'stance', 'comply', 'insight', 'quote']
 }
 
 // Same idea as the crowd: reason about life impact before picking a stance.
