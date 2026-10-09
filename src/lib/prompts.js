@@ -28,6 +28,7 @@ summary: one sentence, max 25 words, what the ordinance does.
 who_must_change: up to 5 specific groups whose behavior must change or who are targeted (e.g. "smokers", "store owners", "parents of minors", "LGBTQ+ people"). Never list "residents", "everyone", or "city officials".
 what_changes: max 25 words, exactly what those people must stop or start doing, or what is done to them.
 still_allowed: max 20 words. What people may still do that a careless reader might think is banned (e.g. a ban on handing out plastic bags does not make shoppers buy plastic bags; they bring reusable bags). Give exact hours if the rule only applies at certain times. "not stated" if nothing.
+scenes: 3 or 4 short everyday situations (max 25 words each) in a Quezon City barangay, each showing something that is NOW forbidden, required, or protected by this ordinance, and who gains or loses (e.g. "A salon owner can no longer turn away a trans customer; she could face a complaint."). Use different kinds of people. Only what the text supports.
 where_when: max 20 words. penalty: max 20 words. exemptions: max 25 words.
 targets_identity: true if it punishes or restricts people for WHO THEY ARE (sexual orientation, gender identity, religion, ethnicity, disability, poverty) rather than for a harmful ACT.
 rights_issues: max 30 words. Which constitutional rights or national laws it may violate, using the facts below. "None apparent" if it is an ordinary regulation.
@@ -109,6 +110,7 @@ touches_me: "directly" = it restricts something I personally do, own, sell, or a
 effect: plain English, max 15 words, what concretely changes in MY week. Name the specific thing (my cigarettes, my stall's plastic bags, my teenager's nights out, my street parking). If "not really", say so.
 impact: 1 = barely affects my day, 2 = small hassle, 3 = noticeable cost, time, or habit change, 4 = cuts my income or adds big costs, 5 = threatens my livelihood.
   "not really" means impact 1 or 2. If it restricts how I EARN my living, 4 or 5. If it restricts a personal habit of mine, 3 or 4.
+why: my private reasoning in plain English, max 15 words, NOT a quote and no opener. Think about the "Situation" given (or my own case): what this rule does to those people, and whether that is right, fair, and workable. Name the people and the act.
 judgment: decide like a thoughtful, decent, informed Filipino adult, using the "Legal and ethical check":
   "good rule" = lawful, fair, and does real good (health, safety, children, cleanliness), at little cost to me.
   "good rule but costly for me" = lawful and useful, but it costs me money, time, or a habit (impact 3 or more).
@@ -127,7 +129,7 @@ insight (only when the schema asks for it): one plain English sentence, max 20 w
   Work from the "Insight angle" you are given and from my own situation; name the section or exact word when you can.
   Never a generic wish any resident could say ("explain it well", "enforce it fairly", "it is good for everyone").
 FAMILY: only mention family members listed under "Home". Never give relatives names. If I live alone or have no children, never talk about my anak or apo.
-quote: ONE Taglish sentence (Tagalog mixed with English, max 15 words), what I would tell a neighbor, in my voice, on the same point as my insight or effect. Begin with the opener you are given.
+quote: ONE Taglish sentence (Tagalog mixed with English, max 15 words), what I would tell a neighbor, in my voice, on the same point as my why but in different words. Begin with the opener you are given.
   If it touches me, say how, naming the specific thing it restricts in my life.
   If it does not touch me, do NOT say I am unaffected and do NOT say "we must follow it for the barangay"; speak from my angle instead, concretely.
   If the rule is wrong, say WHY in plain words (e.g. it punishes people for who they are, it is against the Constitution, the penalty is too harsh).
@@ -153,6 +155,8 @@ export function reconcile(r, lawful = false) {
   if (lawful && judgment === 'unfair or harmful') { judgment = r.impact >= 3 ? 'good rule but costly for me' : 'pointless'; stance = stance === 'support' ? 'mixed' : stance }
   // Only residents with a real stake; "walang problema" is negated, not a concern.
   if (stance === 'support' && r.impact >= 3 && mentions(r.quote || '', CONCERN) && !/\bpero\b|\bbut\b/i.test(r.quote || '')) stance = 'mixed'
+  // The stance follows the reasoning: "It's a hassle / annoying / overreach" is not plain support.
+  if (stance === 'support' && /annoying|hassle|a pain\b|worrying|inconvenient|overreach|a bit much|too much|nakakainis|abala/i.test(r.why || '')) stance = 'mixed'
   if (judgment === 'unfair or harmful') stance = 'oppose'
   else if (judgment === 'good rule' && stance === 'oppose' && r.impact <= 2) judgment = 'pointless'
   else if (judgment === 'good rule but costly for me' && stance === 'support' && r.impact >= 4) stance = 'mixed'
@@ -260,7 +264,7 @@ const OTHER_SECTORS = [
 // Order: broken text, misreading the rule, invented facts, off-topic job talk, label clashes, tone.
 export function findContradiction(r, persona, brief = '', affected = null, ordinanceText = '') {
   if (!r || r.error) return ''
-  const raw = `${r.effect || ''} ${r.insight || ''} ${r.quote || ''}`
+  const raw = `${r.effect || ''} ${r.why || ''} ${r.insight || ''} ${r.quote || ''}`
   if (ODD_CHARS.test(raw)) return 'use only English and Tagalog letters'
   const said = raw.replace(/[‘’]/g, "'")
   for (const [rule, misread, fix, skip = []] of MISREADS) {
@@ -302,6 +306,7 @@ export function findContradiction(r, persona, brief = '', affected = null, ordin
   if ((rel.yes.length || work === true) && r.touches_me === 'not really') {
     return `this ordinance touches ${rel.yes[0] || 'your work as a ' + persona.job}; say how it changes your week`
   }
+  if (r.stance === 'support' && /waste of time|walang silbi|fuss over nothing|pointless|useless|won['’]?t (work|change anything)|just (talk|more (paperwork|rules))/i.test(r.why || '')) return 'your reasoning says the rule is pointless, yet your stance is support'
   if (r.judgment === 'unfair or harmful' && r.stance !== 'oppose') return `you judged it unfair or harmful, yet your stance is ${r.stance}`
   if (r.judgment === 'good rule' && r.stance === 'oppose' && r.impact <= 2) return 'you called it a good rule that costs you little, yet you oppose it'
   if (!/\bpero\b|\bbut\b/i.test(r.quote)) {
@@ -317,6 +322,7 @@ const INTERJECTION = /^(ay naku|ay nako|naku|nako|ay|uy|hay|hay naku|grabe|ano b
 // The opener we hand each resident steers the quote's angle, then is removed so 200 quotes don't
 // all start with a stock phrase; a tag-on "di ba?" (in 40 of 120 quotes) goes too.
 const OPENER_RE = new RegExp('^(' + OPENERS.map(o => o.replace(/,$/, '')).join('|') + '),?\\s*', 'i')
+export const cleanWhy = w => tidyEnd(String(w || '').trim().replace(OPENER_RE, '').replace(/^W+/, '').replace(/^./, c => c.toUpperCase()), 160)
 export function cleanQuote(q = '') {
   let s = q.trim().replace(/^["'‘’“”\s]+|["'‘’“”\s,]+$/g, '').replace(/["“”]\s*,?\s*["“”]?.*$/, '').trim()
   const noOpener = s.replace(OPENER_RE, '').replace(/^(['‘’]?di ?ba\??|po)[,!?\s]+/i, '').replace(/[,\s]*['‘’]?di ?ba\??\s*[.!?]?$/i, '').trim()
@@ -487,7 +493,8 @@ const TIME_RULE = /curfew|discipline hours|\d{1,2}(:\d\d)?\s*[AP]\.?M/i
 
 // brief: plain-language ordinance text (briefText output), or the raw ordinance as fallback.
 // ordinanceText: the original text (topic matching uses both). issue: this resident's insight angle.
-export function crowdUser(r, brief, affectedGroups = null, ordinanceText = '', issue = '') {
+// scene: one concrete situation from the brief this resident reasons about (see briefSchema.scenes).
+export function crowdUser(r, brief, affectedGroups = null, ordinanceText = '', issue = '', scene = '') {
   const topic = ordinanceText || brief   // relevance from the ordinance text only (see findContradiction)
   const rel = relevantDetails(r.details, topic, r.job, r)
   const work = workAffected(r, affectedGroups)
@@ -516,9 +523,10 @@ export function crowdUser(r, brief, affectedGroups = null, ordinanceText = '', i
     : `\nMy angle on rules that don't touch me: ${bystander}.`
   return `Resident: ${r.age}-year-old ${r.job} (${r.employment}), monthly income: ${r.income}, commutes by ${r.commute}, Purok ${r.purok}.${home}${hours}
 ${[workLine, touch].filter(Boolean).join('\n')}${kidsNote}
-Values: ${r.values}. Outlook: ${r.outlook}. Voice: ${r.voice}. Quote opener: "${OPENERS[(r.id ?? 0) % OPENERS.length]}"${angle}
+Values: ${r.values}. Outlook: ${r.outlook}. Voice: ${r.voice}. Opener for my quote only: "${OPENERS[(r.id ?? 0) % OPENERS.length]}"${angle}
 Ordinance in plain words:
-${brief}${hoursNote}`
+${brief}${hoursNote}${scene ? `
+Situation in my barangay to think about: ${scene}` : ''}`
 }
 
 // ---------- Deep panel ----------

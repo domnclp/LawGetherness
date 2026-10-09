@@ -15,6 +15,9 @@ export const briefSchema = {
     // What people may still do that a careless reader might think is banned (judges found residents
     // reading the bag ban as a bag fee and the anti-reserving rule as a parking ban).
     still_allowed: { type: 'string' },
+    // Everyday situations that make the law concrete. Each resident reacts to one of them; judging an
+    // abstract title, most residents fell back on stock worries ("dagdag na trabaho sa negosyante").
+    scenes: { type: 'array', items: { type: 'string' }, maxItems: 4 },
     where_when: { type: 'string' },
     penalty: { type: 'string' },
     exemptions: { type: 'string' },
@@ -29,7 +32,7 @@ export const briefSchema = {
     // a different one, so 30 residents don't all repeat the same insight.
     issues: { type: 'array', items: { type: 'string' }, maxItems: 5 }
   },
-  required: ['summary', 'who_must_change', 'what_changes', 'still_allowed', 'where_when', 'penalty', 'exemptions',
+  required: ['summary', 'who_must_change', 'what_changes', 'still_allowed', 'scenes', 'where_when', 'penalty', 'exemptions',
     'targets_identity', 'rights_issues', 'penalty_check', 'public_benefit', 'legality', 'known_facts', 'issues']
 }
 
@@ -42,6 +45,9 @@ export const crowdSchema = {
     // loose; the real word limits live in the prompt and tidyEnd() cleans any cut.
     effect: { type: 'string', maxLength: 130 },
     impact: { type: 'integer', minimum: 1, maximum: 5 },
+    // Everyone reasons in words before judging: what the rule does to the people in their situation,
+    // and whether that is right. Without it, untouched residents judged from the title alone.
+    why: { type: 'string', maxLength: 160 },
     // Moral/practical verdict before the stance: a small model follows a stance rule far better
     // once it has committed to a short judgment (same trick as touches_me).
     judgment: { enum: ['good rule', 'good rule but costly for me', 'unfair or harmful', 'pointless'] },
@@ -53,7 +59,7 @@ export const crowdSchema = {
     insight: { type: 'string', maxLength: 170 },
     quote: { type: 'string', maxLength: 150 }
   },
-  required: ['touches_me', 'effect', 'impact', 'judgment', 'stance', 'comply', 'insight', 'quote']
+  required: ['touches_me', 'effect', 'impact', 'why', 'judgment', 'stance', 'comply', 'insight', 'quote']
 }
 
 // Residents the ordinance doesn't touch skip the insight (their generic advice drowned out the affected

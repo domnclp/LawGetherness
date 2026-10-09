@@ -14,7 +14,7 @@ import {
   REPORT_SYSTEM, REPORT_UNLAWFUL_SYSTEM, reportUser, summarizeCrowd, cleanQuote, legalCheckText, reconcile,
   findContradiction, neighborsDigest, fairnessLens, missingSections, affectedGroupsFor,
   relevantDetails, pickIssue, tidyEnd, clusterInsights, bystanderEffect, words, jaccard,
-  SUMMARY_SYSTEM, summaryUser, quickSummary
+  SUMMARY_SYSTEM, summaryUser, quickSummary, cleanWhy
 } from './prompts.js'
 
 // 200 seeded adult residents (same every run), national approximate mix. Smaller runs use
@@ -36,7 +36,7 @@ export { SAMPLES }
 
 // ---------- Run cache ----------
 // Bump on any prompt, schema, or persona change: cached and saved answers from an older engine are ignored.
-export const ENGINE_VERSION = '2026-10-10.1'
+export const ENGINE_VERSION = '2026-10-10.2'
 const cacheKey = () => ({ version: ENGINE_VERSION, model: MODEL })
 const savedIdFor = text => SAMPLES.find(s => s.text === text)?.id
 const stripSource = r => { if (!r || typeof r !== 'object') return r; const { source, ...rest } = r; return rest }
@@ -74,7 +74,7 @@ export function exportSavedRun(ordinanceText) {
 const briefCache = new Map()
 export function getBrief(ordinanceText) {
   if (!briefCache.has(ordinanceText)) {
-    const call = () => chat({ system: BRIEF_SYSTEM, user: briefUser(ordinanceText), schema: briefSchema, numPredict: 850, temperature: 0 })   // deterministic: one brief field ("Real benefit: None") swung a 30-resident curfew run from 23 to 9 support
+    const call = () => chat({ system: BRIEF_SYSTEM, user: briefUser(ordinanceText), schema: briefSchema, numPredict: 1050, temperature: 0 })   // deterministic: one brief field ("Real benefit: None") swung a 30-resident curfew run from 23 to 9 support
     const p = call().catch(call).then(b => checkBrief(b, ordinanceText))
     p.then(brief => saveRun(ordinanceText, cacheKey(), { brief })).catch(() => {})
     briefCache.set(ordinanceText, p)
@@ -88,10 +88,10 @@ export function getBrief(ordinanceText) {
 async function briefOrText(ordinanceText) {
   try {
     const b = await getBrief(ordinanceText)
-    return { text: briefText(b), issues: b.issues || [] }
+    return { text: briefText(b), issues: b.issues || [], scenes: b.scenes || [] }
   } catch (err) {
     if (err.message?.startsWith('Ollama')) throw err
-    return { text: ordinanceText, issues: [] }
+    return { text: ordinanceText, issues: [], scenes: [] }
   }
 }
 
@@ -121,7 +121,7 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
     if (!signal?.aborted) lastCrowd.set(ordinanceText, { personas, results: known })
     return known
   }
-  const { text: brief, issues } = await briefOrText(ordinanceText)
+  const { text: brief, issues, scenes } = await briefOrText(ordinanceText)
   const affected = affectedGroupsFor(ordinanceText)   // occupation groups whose work this ordinance touches
   const lawful = /ordinary, lawful regulation/.test(brief)
   // Who is affected comes from the ordinance text only (model-written brief words leaked in).
@@ -133,7 +133,8 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
     const touched = rel.yes.length > 0 || rel.protects.length > 0 || affected.includes(p.group)
     // A resident with a specific stake (a hook) argues from it; brief issues only for the rest
     // (judges saw the night-shift nurse copy a brief issue instead of her real problem).
-    return { rel, touched, issue: touched && !rel.hooks.length ? pickIssue(p, issues, rel, k++) : '' }
+    // Each resident reasons about one concrete scene: the closest to their life, else rotated.
+    return { rel, touched, issue: touched && !rel.hooks.length ? pickIssue(p, issues, rel, k++) : '', scene: pickIssue(p, scenes, rel, p.id) }
   })
   // Crowd-level checks on top of findContradiction: a quote that repeats a neighbor's ("Maganda 'yan
   // para sa mga bata" four times), and "for the children" under a rule that has nothing to do with kids.
@@ -147,13 +148,14 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
   // Seed per resident and attempt: the same draft gives the same crowd (fair before/after runs),
   // while a retry after bad JSON or a re-ask still gets a fresh sample.
   const ask = (p, i, s, note = '') => chat({
-    system: CROWD_SYSTEM, user: crowdUser(p, brief, affected, ordinanceText, plan[i].issue) + note,
-    schema: plan[i].touched ? crowdSchema : crowdSchemaNoInsight, numPredict: plan[i].touched ? 300 : 220,
+    system: CROWD_SYSTEM, user: crowdUser(p, brief, affected, ordinanceText, plan[i].issue, plan[i].scene) + note,
+    schema: plan[i].touched ? crowdSchema : crowdSchemaNoInsight, numPredict: plan[i].touched ? 330 : 260,
     seed: 1000 * (plan[i].tries = (plan[i].tries || 0) + 1) + p.id, signal: s
   }).then(r => ({
     ...r,
     effect: plan[i].touched ? tidyEnd(r.effect, 130) : bystanderEffect(plan[i].rel, lawful),
     impact: plan[i].touched ? r.impact : Math.min(r.impact, 2),
+    why: cleanWhy(r.why),
     insight: plan[i].touched && r.touches_me !== 'not really' ? tidyEnd((r.insight || '').replace(/[<>]/g, ''), 170) : '',
     quote: cleanQuote(tidyEnd(r.quote, 150))
   }))
