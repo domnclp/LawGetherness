@@ -32,7 +32,7 @@ export { CROWD_MIX, JOBS }
 // Extra (additive): panel character info for the cards: { id, name, role, emoji, bio }.
 export const PANEL_PERSONAS = PANEL
 
-// Extra (additive): 10 Quezon City sample ordinances: { id, title, source, text }.
+// Extra (additive): Quezon City sample ordinances: { id, title, source, text }.
 export { SAMPLES }
 
 // ---------- Run cache ----------

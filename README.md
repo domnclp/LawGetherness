@@ -21,10 +21,10 @@ Built for the AppBuildersPH hackathon (October 10, 2026) by **Choco Mallows**: Z
 3. **Consistency checks (code, no extra model).** Each answer is checked against the resident's real profile and the ordinance: wrong hours, misreading the rule, invented relatives or habits, off-topic job talk, a stance that contradicts its own reasoning, duplicate quotes. A failing answer is re-asked once with the specific problem named; label clashes are reconciled in code.
 4. **Togetherness summary.** What the community actually thinks, in a few sentences, with the mood computed from the real split.
 5. **Deep panel (8 hand-written personas, streamed).** Tricycle driver, market vendor, senior-high student, senior citizen, barangay tanod, sari-sari store owner, a trans salon owner, and a loophole hunter, each with a full answer: life impact, reaction, loophole, what would help.
-6. **Report.** Headline, who is hurt most, top loopholes, and up to 3 clause-level amendments (each must cite a section that exists). One click adds an amendment to the draft. Re-run and compare the before/after split.
-7. **Council memo export.** A print-ready one-page brief (headline, the split, who is hurt with per-group numbers, loopholes, amendments, residents' top points, and the "simulated, not a survey" notice). Print it or save it as PDF for a committee hearing.
+6. **Report.** Headline, who is hurt most, top loopholes, and up to 3 clause-level amendments (checked against the draft's sections and re-asked once if one cites a section that does not exist). One click adds an amendment to the draft. Re-run and compare the before/after split.
+7. **Council memo export.** A print-ready one-page brief: headline, the split and compliance, how residents weighed it (the gains and losses they named, clustered with counts), who is hurt with per-group numbers, loopholes, amendments, and the "simulated, not a survey" notice. Print it or save it as PDF for a committee hearing.
 
-Also: attach `.txt`, `.md`, `.docx` or `.pdf` drafts (parsed in the browser, no upload); 4 real Quezon City measures as presets, with saved 200-resident runs that open instantly and are labeled **Saved run**; an offline badge driven by `navigator.onLine`.
+Also: attach `.txt`, `.md`, `.docx` or `.pdf` drafts (parsed in the browser, no upload); real Quezon City measures as presets, with saved 200-resident runs that open instantly and are labeled **Saved run** (at 50 or 100 residents the saved crowd replays instantly and the panel and report run live); an offline badge driven by `navigator.onLine` that also shows whether the local model is running.
 
 ## Why does this product benefit from running AI locally?
 
@@ -43,8 +43,10 @@ Measured on the demo laptop (ASUS TUF F17, i7-12700H, RTX 3060 Laptop 6 GB), `ge
 
 | Crowd size | Live run (crowd only) | Saved preset |
 | --- | --- | --- |
-| 50 residents | about 2 minutes | instant |
-| 200 residents | about 8 minutes | instant |
+| 50 residents | about 1.5-2 minutes | instant crowd; panel and report about 1 minute |
+| 200 residents | about 6-8 minutes (1.7-2.3 s per resident) | instant, everything |
+
+Engine v3 made the crowd 35-45% faster than v2 while adding the who-gains / who-loses weighing (24-resident benchmark: 94-101 s down to 50-64 s, 0 failed residents).
 
 ## Run it
 

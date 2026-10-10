@@ -1,0 +1,43 @@
+{
+ "runs": {
+  "school-zone": {
+   "version": "2026-10-10.3",
+   "model": "gemma3:4b",
+   "size": 200,
+   "created": "2026-10-09T23:44:59.687Z",
+   "split": {
+    "support": 131,
+    "mixed": 69,
+    "oppose": 0
+   },
+   "gray": 0,
+   "verdict": "revise"
+  },
+  "sogiesc": {
+   "version": "2026-10-10.3",
+   "model": "gemma3:4b",
+   "size": 200,
+   "created": "2026-10-09T23:51:48.183Z",
+   "split": {
+    "support": 188,
+    "mixed": 12,
+    "oppose": 0
+   },
+   "gray": 0,
+   "verdict": "revise"
+  },
+  "curfew": {
+   "version": "2026-10-10.3",
+   "model": "gemma3:4b",
+   "size": 200,
+   "created": "2026-10-09T23:58:04.499Z",
+   "split": {
+    "support": 140,
+    "mixed": 60,
+    "oppose": 0
+   },
+   "gray": 0,
+   "verdict": "revise"
+  }
+ }
+}
