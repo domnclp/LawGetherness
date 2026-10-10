@@ -38,6 +38,19 @@
    },
    "gray": 0,
    "verdict": "revise"
+  },
+  "plastic-bags": {
+   "version": "2026-10-10.3",
+   "model": "gemma3:4b",
+   "size": 200,
+   "created": "2026-10-10T01:16:09.597Z",
+   "split": {
+    "support": 162,
+    "mixed": 37,
+    "oppose": 1
+   },
+   "gray": 0,
+   "verdict": "revise"
   }
  }
 }
