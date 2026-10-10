@@ -125,7 +125,10 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
     if (!signal?.aborted) lastCrowd.set(ordinanceText, { personas, results: known })
     return known
   }
-  const { text: brief, issues, scenes } = await briefOrText(ordinanceText)
+  // Stop works even while the brief is still being written (it keeps running and stays cached).
+  const stopped = new Promise((_, reject) => signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true }))
+  stopped.catch(() => {})
+  const { text: brief, issues, scenes } = await (signal ? Promise.race([briefOrText(ordinanceText), stopped]) : briefOrText(ordinanceText))
   const affected = affectedGroupsFor(ordinanceText)   // occupation groups whose work this ordinance touches
   const lawful = /ordinary, lawful regulation/.test(brief)
   // Who is affected comes from the ordinance text only (model-written brief words leaked in).

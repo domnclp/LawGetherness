@@ -197,6 +197,7 @@ export default function App() {
               </div>
               <ResponseSummary report={report ? { ...report, response_summary: highlights || undefined } : (highlights ? { response_summary: highlights } : null)} sentiment={togetherness?.mood ? `${togetherness.mood}. ${responseSummary}` : responseSummary} />
             </div>
+            {mode === 'preview' && <div className="results-caption" role="status"><span>Preview: example colors and quotes, not results. Run a simulation to hear these residents.</span><strong>{residents.length} residents</strong></div>}
             {mode === 'live' && <div className="results-caption" role="status"><span>{`${completed.length} valid reactions · ${done - completed.length} unavailable`}{runSource === 'saved' ? ' · Saved run, computed earlier on this laptop' : runSource === 'memory' ? ' · Remembered from an earlier run of this draft' : ''}</span><strong>{residents.length} residents</strong></div>}
             {mode === 'live' && draft !== runDraft && <p className="draft-changed">Draft edited. Run again to update these results.</p>}
             <ResponseContext mode={mode} draft={draft} runDraft={runDraft} person={person} reaction={reaction} />
