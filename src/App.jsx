@@ -48,6 +48,8 @@ export default function App() {
   const [mapZoom, setMapZoom] = useState(1)
   const [phase, setPhase] = useState('idle')
   const [health, setHealth] = useState('checking')
+  // Offline badge (CLAUDE.md): network status from navigator.onLine; the model runs locally either way.
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine !== false)
   const [panelResults, setPanelResults] = useState({})
   const [panelText, setPanelText] = useState({})
   const [report, setReport] = useState(null)
@@ -61,6 +63,11 @@ export default function App() {
     let mounted = true
     checkOllama().then(ready => { if (mounted) setHealth(ready ? 'ready' : 'unavailable') }).catch(() => { if (mounted) setHealth('unavailable') })
     return () => { mounted = false; controller.current?.abort() }
+  }, [])
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine !== false)
+    window.addEventListener('online', update); window.addEventListener('offline', update)
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) }
   }, [])
   useEffect(() => {
     if (running) return
@@ -153,10 +160,10 @@ export default function App() {
       <a className="brand" href="#welcome" aria-label="LawGetherness landing page" title="Back to welcome"><span className="brand-mark"><Icon name="leaf" size={27} /></span><span>LawGetherness<small>ORDINANCE WIND TUNNEL</small></span></a>
       <div className="workspace-label">WORKSPACE</div>
       <nav className="rail-nav" aria-label="Workspace navigation"><a className="nav-item" href="#welcome" aria-label="Home" title="Home"><Icon name="leaf" /><span>Home</span></a><a className="nav-item active" href="#workspace" aria-label="Test a law" title="Test a law"><Icon name="grid" /><span>Test a law</span><small>01</small></a><a className="nav-item" href="#about-us" aria-label="About us" title="About us"><Icon name="spark" /><span>About us</span></a></nav>
-      <div className="rail-status" title="Local inference"><Icon name="shield" size={18} /><i className="status-dot" /></div>
+      <div className="rail-status" title={online ? 'Online. Inference runs locally.' : 'Offline. Inference still runs locally.'}><Icon name="shield" size={18} /><i className={online ? 'status-dot' : 'status-dot offline'} /></div>
     </aside>
     <main id="workspace" tabIndex={-1}>
-      <header className="topbar workspace-header"><a className="workspace-wordmark" href="#welcome">Law<em>Getherness</em><small>ORDINANCE WIND TUNNEL</small></a><nav className="workspace-links" aria-label="Page sections"><a href="#welcome">Home</a><a href="#draft">Test a law</a><a href="#about-us">About us</a></nav></header>
+      <header className="topbar workspace-header"><a className="workspace-wordmark" href="#welcome">Law<em>Getherness</em><small>ORDINANCE WIND TUNNEL</small></a><nav className="workspace-links" aria-label="Page sections"><a href="#welcome">Home</a><a href="#draft">Test a law</a><a href="#about-us">About us</a></nav><span className={online ? 'net-badge' : 'net-badge offline'} role="status" aria-live="polite" title="Network status from navigator.onLine. The AI model runs on this laptop either way." style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999, fontSize: 12, whiteSpace: 'nowrap', border: `1px solid ${online ? '#6d967d' : '#c0614d'}`, background: online ? 'rgba(109,150,125,.16)' : 'rgba(192,97,77,.22)', color: online ? '#d7e8db' : '#f6cfc6' }}><i className={online ? 'status-dot' : 'status-dot offline'} style={online ? undefined : { background: '#e0735c' }} />{online ? 'Online' : 'Offline'} · {health === 'unavailable' ? 'local AI not running' : 'AI runs on this laptop'}</span></header>
       <div className="page-content">
         <div className="workspace-grid">
           <section className="card draft-card" id="draft">

@@ -55,7 +55,10 @@ export async function getRunSource(ordinanceText, size) {
   const e = await cachedRun(ordinanceText)
   if (!e) return null
   const allCrowd = PERSONAS_200.slice(0, size).every(p => e.crowd?.[p.id])
-  return allCrowd ? e.origin : null
+  // Labeled as saved/remembered only when the summary, panel and report at this size are cached too;
+  // otherwise the crowd still replays instantly but the rest runs live.
+  const slot = e.bySize?.[size]
+  return allCrowd && slot?.summary && slot?.panel && slot?.report ? e.origin : null
 }
 
 // Starts the brief call early (e.g. while the user is still looking at the draft) so Run starts faster.
@@ -167,7 +170,7 @@ export async function runCrowd(ordinanceText, size, onResult, signal) {
     const blank = { ...r, effect: '', insight: '' }
     if (check(blank, p)) return r     // the problem is in the quote or labels; reconcile() handles labels
     const ok = f => !check({ ...blank, [f]: r[f] }, p)
-    return { ...r, effect: ok('effect') ? r.effect : bystanderEffect(plan[i].rel, lawful), insight: ok('insight') ? r.insight : '', flagged: true }
+    return { ...r, effect: ok('effect') ? r.effect : plan[i].touched ? '' : bystanderEffect(plan[i].rel, lawful), insight: ok('insight') ? r.insight : '', flagged: true }
   }
   const tasks = personas.map((p, i) => async s => {
     const first = await ask(p, i, s)

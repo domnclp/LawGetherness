@@ -24,7 +24,8 @@ async function post(body, signal) {
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     // Vite's proxy answers 500/502 when nothing is listening on 11434.
-    if (res.status >= 500 && /ECONNREFUSED|connect/i.test(text + res.statusText)) {
+    // (Vite 8 answers 502 with an empty body; Ollama's own errors carry a JSON body.)
+    if (res.status === 502 || res.status === 504 || (res.status >= 500 && !text.trim()) || /ECONNREFUSED|connect/i.test(text + res.statusText)) {
       throw new Error('Ollama not running. Start Ollama, then try again.')
     }
     throw new Error(`Ollama error ${res.status}: ${text.slice(0, 200)}`)

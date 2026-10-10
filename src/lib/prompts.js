@@ -168,7 +168,7 @@ export function reconcile(r, lawful = false) {
   // costs only something minor, is support (SOGIESC residents wrote "protects LGBTQ+ people; no one
   // loses", judged it good, said mixed). A serious burden on others (fines, lost income, harassment)
   // keeps a considered "mixed".
-  if (judgment === 'good rule' && stance === 'mixed' && 'hurts' in r && !isNone(r.helps)
+  if (judgment === 'good rule' && r.stance === 'mixed' && stance === 'mixed' && 'hurts' in r && !isNone(r.helps)
     && (isNone(r.hurts) || (r.impact <= 2 && !othersBurden(r.hurts)))) stance = 'support'
   if (judgment === 'unfair or harmful') stance = 'oppose'
   else if (judgment === 'good rule' && stance === 'oppose' && r.impact <= 2) judgment = 'pointless'
@@ -280,6 +280,11 @@ export function findContradiction(r, persona, brief = '', affected = null, ordin
   const raw = `${r.effect || ''} ${r.why || ''} ${r.insight || ''} ${r.quote || ''}`
   if (ODD_CHARS.test(raw)) return 'use only English and Tagalog letters'
   const said = raw.replace(/[‘’]/g, "'")
+  // First-person checks read only the resident's own words: helps/hurts name OTHER people by design
+  // ("vape shop owner loses income" is not a claim that I vape), unless a side speaks about me.
+  const mine = t => (/\b(i|i'm|i've|my|me|mine|ako|ko|akin)\b/i.test(t || '') ? t : '')
+  const sides = 'helps' in r ? `${mine(r.helps)} ${mine(r.hurts)}` : (r.why || '')
+  const own = `${r.effect || ''} ${sides} ${r.insight || ''} ${r.quote || ''}`.replace(/[‘’]/g, "'")
   for (const [rule, misread, fix, skip = []] of MISREADS) {
     if (rule.test(ordinanceText) && misread.test(said) && !skip.includes(persona.group)) return `you misread the ordinance: ${fix}`
   }
@@ -297,23 +302,23 @@ export function findContradiction(r, persona, brief = '', affected = null, ordin
   if (lawful && rel.protects.length && r.stance === 'oppose') return `this ordinance protects you (${rel.protects[0]}), yet you oppose it`
   const details = persona.details || []
   const hasKids = details.some(d => /teenager|young kids|minor/.test(d))
-  if (!hasKids && (mentions(said, KIN) || NAMED_KIN.test(said))) return 'you have no children or grandchildren at home; do not invent relatives'
+  if (!hasKids && (mentions(own, KIN) || NAMED_KIN.test(own))) return 'you have no children or grandchildren at home; do not invent relatives'
   for (const [claim, has, fact] of HABIT_CLAIMS) {
-    if (mentions(said, claim) && !details.some(d => has.test(d)) && !(has.source.includes('plastic') && /vendor|sari-sari|store/.test(persona.job))) {
+    if (mentions(own, claim) && !details.some(d => has.test(d)) && !(has.source.includes('plastic') && /vendor|sari-sari|store/.test(persona.job))) {
       return `you talked as if you have this, but ${fact}`
     }
   }
-  if (/naglalakad lang ako|wala akong sasakyan|hindi ako nagmamaneho|i don'?t (own a car|drive)/i.test(said) && details.some(d => /owns a car|drives a/.test(d))) {
+  if (/naglalakad lang ako|wala akong sasakyan|hindi ako nagmamaneho|i don'?t (own a car|drive)/i.test(own) && details.some(d => /owns a car|drives a/.test(d))) {
     return 'you own or drive a vehicle; do not say you walk or have none'
   }
   const work = workAffected(persona, affected)
-  if (work === false && !rel.yes.length && JOB_WORDS[persona.group] && mentions(said, JOB_WORDS[persona.group])) {
+  if (work === false && !rel.yes.length && JOB_WORDS[persona.group] && mentions(own, JOB_WORDS[persona.group])) {
     return 'your work is not affected by this ordinance; leave your job out and react as a resident'
   }
   if (Array.isArray(affected)) {
     for (const [re, g] of OTHER_SECTORS) {
       if (g === 'driver' && /vehicle|motor|\bpark/i.test(ordinanceText)) continue
-      if (g !== persona.group && !affected.includes(g) && re.test(said)) return `this ordinance does not affect the work of the ${g} group; speak only about your own life`
+      if (g !== persona.group && !affected.includes(g) && re.test(own)) return `this ordinance does not affect the work of the ${g} group; speak only about your own life`
     }
   }
   if ((rel.yes.length || work === true) && r.touches_me === 'not really') {
@@ -342,8 +347,8 @@ export const cleanWhy = w => tidyEnd(String(w || '').trim().replace(OPENER_RE, '
 // Free-text "why" rambled past its cap ("It's a bother, really…") and named no trade-off.
 // A bystander's "costly" stands only for a serious, legitimate burden on others (not losing the
 // freedom to discriminate: SOGIESC went 1/23/0 when "businesses can't refuse customers" counted).
-const SERIOUS = /fine|income|lose|lost|sales|livelihood|harass|arrest|jail|suspicion|scrutin|kotong|extort|profil|stopped|questioned/i
-const WRONGDOER = /refus|discriminat|turn(ing)? away|deny|denying|reject|litter|throw|dump|smok|vap/i
+const SERIOUS = /\b(fine[ds]?|income|los(e|es|ing|t)|sales|livelihood|harass\w*|arrest\w*|jail\w*|suspicion|scrutin\w*|kotong|extort\w*|profil\w*|stopped|questioned)\b/i
+const WRONGDOER = /refus|discriminat|turn(ing)? away|deny|denying|reject|litter|throw|dump|smok|vap|idl/i
 const othersBurden = s => !isNone(s) && SERIOUS.test(s) && !WRONGDOER.test(s)
 export const isNone = s => !s || /^(no ?one|nobody|none|nothing|n\/a|wala)\b/i.test(String(s).trim())
 // A side cut by the schema cap ("protects children from smoke and improves") goes back to its last
@@ -585,7 +590,7 @@ life_impact: English, 2 sentences, max 35 words. What actually changes in my wee
 impact: 1 = barely affects me ... 5 = threatens my livelihood. If it restricts how I earn a living, 4 or 5. If it barely touches me, 1 or 2.
 stance: support, mixed, or oppose. Think like a decent, informed person: read the "Legal and ethical check". If the rule punishes people for who they are, jails people for harmless acts, or is likely unconstitutional, oppose it even if it does not touch me. Support rules that genuinely protect health, safety, or children. If the ordinance PROTECTS me or my family, support it. If it cuts my income, weigh that honestly.
 comply: "comply" = follow fully; "partial" = only when watched; "evade" = find a way around it.
-reaction: max 30 words of natural Taglish (Tagalog mixed with English), what I would say at a barangay assembly. Make one clear point. If you are told what neighbors said, respond to one specific concern of theirs (agree or push back) from your own experience. Do not start with "Uy" or "Ay naku". No hashtags, no emojis.
+reaction: max 30 words of natural Taglish (Tagalog mixed with English), what I would say at a barangay assembly. Make one clear point that shows I understood the rule: what it does to people like me, and whether that is right. I have read the plain-language facts, so never say I am confused or do not understand it. If you are told what neighbors said, respond to one specific concern of theirs (agree or push back) from your own experience. Do not start with "Uy", "Ay naku", or "Parang". Never give neighbors or relatives names. No hashtags, no emojis.
 loophole: English, max 30 words. The most realistic way people would get around THIS ordinance, or a specific gap in its wording. Name the exact word, section, or missing detail.
 what_would_help: English, max 30 words. One concrete change to the ordinance or its rollout that would make it work better for people like me.
 ${RESPECT}

@@ -7,28 +7,39 @@
 import { percents, words, jaccard, isNone } from './prompts.js'
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-// Long model text would push the memo onto a second page; cut at a word boundary.
-const clip = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length <= n ? t : t.slice(0, t.lastIndexOf(' ', n - 1) > n * 0.6 ? t.lastIndexOf(' ', n - 1) : n - 1).replace(/[,;:\s]+$/, '') + '…' }
+// Long model text would push the memo onto a second page. Cut at the last full sentence that fits
+// (if it keeps at least half the limit), else at a word boundary with "…".
+function clip(s, n) {
+  const t = String(s ?? '').replace(/\s+/g, ' ').trim()
+  if (t.length <= n) return t
+  const head = t.slice(0, n)
+  const end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? '))
+  if (end >= n * 0.5) return head.slice(0, end + 1)
+  const sp = head.lastIndexOf(' ')
+  return head.slice(0, sp > n * 0.6 ? sp : n - 1).replace(/[,;:.\s]+$/, '') + '…'
+}
 const pct = (k, n) => n ? Math.round(k / n * 100) : 0
 
 // The ordinance title: its first heading-like line (e.g. "AN ORDINANCE PROHIBITING ..."), else line one.
 function titleOf(draft = '') {
   const lines = draft.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
   const t = lines.find(l => /^an ordinance\b/i.test(l)) || lines.find(l => /ordinance/i.test(l)) || lines[0] || 'Untitled draft'
-  return clip(t, 140)
+  return clip(t, 120)
 }
 
 // Residents whose simulated week changes most, by job, from the crowd itself (numbers, not model text).
+// Job titles at 100+ residents; occupation groups in smaller runs, where most titles have one person.
 function hardestHit(residents, byId) {
+  const valid = residents.filter(p => { const r = byId(p); return r && !r.error && r.stance })
+  const keyOf = p => (valid.length >= 100 ? p.job : (p.group || p.job))
   const groups = new Map()
-  for (const p of residents) {
-    const r = byId(p)
-    if (!r || r.error || !r.stance) continue
-    const g = groups.get(p.job) || { job: p.job, n: 0, impact: 0, oppose: 0 }
+  for (const p of valid) {
+    const r = byId(p), k = keyOf(p)
+    const g = groups.get(k) || { job: k, n: 0, impact: 0, oppose: 0 }
     g.n++; g.impact += r.impact || 0; if (r.stance === 'oppose') g.oppose++
-    groups.set(p.job, g)
+    groups.set(k, g)
   }
-  const min = residents.length >= 100 ? 2 : 1
+  const min = valid.length >= 30 ? 2 : 1
   return [...groups.values()].filter(g => g.n >= min)
     .map(g => ({ ...g, avg: g.impact / g.n }))
     .sort((a, b) => b.avg - a.avg || b.n - a.n).slice(0, 4)
@@ -124,15 +135,16 @@ export function buildMemoHtml(data) {
   .why { color: #555; font-size: 8.6pt; }
   .n { color: #666; font-size: 8.4pt; }
   .none { color: #777; list-style: none; margin-left: -16px; }
-  footer { margin-top: 10px; padding-top: 5px; border-top: 1px solid #1d1d1d; font-size: 7.8pt; color: #444; }
+  .disclaimer { font-size: 8pt; color: #8a2b20; font-weight: 600; margin-top: 2px; }
+  footer { break-inside: avoid; margin-top: 10px; padding-top: 5px; border-top: 1px solid #1d1d1d; font-size: 7.8pt; color: #444; }
   footer b { color: #1d1d1d; }
   @media screen { body:not(.printing) { background: #f1f1ee; } body:not(.printing) .page { background: #fff; padding: 14mm; margin: 16px auto; box-shadow: 0 1px 6px rgba(0,0,0,.15); } }
 </style></head>
 <body><div class="page">
-<header><div><div class="kicker">Council memo · Draft ordinance pre-consultation brief</div></div>
+<header><div><div class="kicker">Council memo · Draft ordinance pre-consultation brief</div><div class="disclaimer">Simulated reactions from a small local model, not a real survey.</div></div>
 <div class="meta">${esc(when)}<br>LawGetherness · offline simulation</div></header>
 <h1>${esc(titleOf(draft))}</h1>
-<p class="headline">${esc(clip(report?.headline || '', 180))}</p>
+<p class="headline">${esc(clip(report?.headline || '', 160))}</p>
 <div class="stats"><span><b>${n}</b> simulated residents</span><span>Support <b>${ps}%</b></span><span>Mixed <b>${pm}%</b></span><span>Oppose <b>${po}%</b></span><span>Would comply fully <b>${cc}%</b> · partly ${cp}% · evade ${ce}%</span></div>
 <div class="bar" role="img" aria-label="Support ${ps}%, mixed ${pm}%, oppose ${po}%"><span class="s" style="width:${ps}%"></span><span class="m" style="width:${pm}%"></span><span class="o" style="width:${po}%"></span></div>
 <span class="verdict">Recommendation: ${esc(verdict)}</span>
@@ -141,7 +153,7 @@ ${weighed}
 <div class="cols">
   <div><h2>Who is hurt most</h2><ul>${list(report?.most_affected, 3, 110)}</ul>
   ${hitRows ? `<table><thead><tr><th>Simulated group</th><th>n</th><th>Avg impact</th><th>Oppose</th></tr></thead><tbody>${hitRows}</tbody></table>` : ''}</div>
-  <div><h2>Loopholes to close</h2><ul>${list(report?.top_loopholes, 3, 120)}</ul>
+  <div><h2>${withdraw ? 'Legal problems found' : 'Loopholes to close'}</h2><ul>${list(report?.top_loopholes, 3, 120)}</ul>
   ${points ? `<h2>Points residents raised most</h2><ul>${points}</ul>` : ''}</div>
 </div>
 <h2>Recommended amendments</h2><ol>${amendments}</ol>
